@@ -88,64 +88,105 @@ def init(
     console.print(f"[dim]config dir: {cfg_path.parent}[/dim]")
 
 
+async def _run_scraper(
+    board: str,
+) -> tuple[str, list[Offer] | None, Exception | None]:
+    scraper_cls = SCRAPERS[board]
+    scraper = scraper_cls()
+    try:
+        offers = await scraper.scrape()
+        return board, offers, None
+    except Exception as exc:
+        return board, None, exc
+
+
+async def _run_scrapers_parallel(
+    boards: list[str],
+) -> dict[str, tuple[list[Offer] | None, Exception | None]]:
+    results = await asyncio.gather(*[_run_scraper(b) for b in boards])
+    return {board: (offers, err) for board, offers, err in results}
+
+
 @app.command()
 def search(
-    board: str = typer.Option("remoteworkspain", "--board", help="Job board a scrapear."),
+    board: str = typer.Option(
+        "remoteworkspain",
+        "--board",
+        help="Job board a scrapear. Usa 'all' para correrlos todos en paralelo.",
+    ),
     limit: int = typer.Option(20, "--limit", help="Maximo ofertas a procesar tras scrape."),
     remote_only: bool = typer.Option(False, "--remote-only", help="Solo ofertas remotas."),
 ) -> None:
-    """Scrapea un job board, puntua las ofertas y las persiste."""
-    if board not in SCRAPERS:
-        available = ", ".join(sorted(SCRAPERS.keys()))
+    """Scrapea un job board (o todos con --board all), puntua y persiste."""
+    if board == "all":
+        boards = sorted(SCRAPERS.keys())
+    elif board in SCRAPERS:
+        boards = [board]
+    else:
+        available = ", ".join([*sorted(SCRAPERS.keys()), "all"])
         console.print(f"[red]ERROR[/red] board desconocido '{board}'. Disponibles: {available}")
         raise typer.Exit(code=2)
 
     profile = load_profile()
-    scraper_cls = SCRAPERS[board]
-    scraper = scraper_cls()
-    console.print(f"[cyan]scraping[/cyan] {scraper.source_url}")
 
-    try:
-        offers: list[Offer] = asyncio.run(scraper.scrape())
-    except Exception as exc:
-        console.print(f"[red]ERROR[/red] scrape fallo: {exc}")
-        record_run(source=board, new_count=0, updated_count=0, errors=1)
-        raise typer.Exit(code=1) from exc
+    for b in boards:
+        cls = SCRAPERS[b]
+        console.print(f"[cyan]scraping[/cyan] {cls.name} -> {cls.source_url}")
 
-    if remote_only:
-        offers = [o for o in offers if o.remote]
+    results = asyncio.run(_run_scrapers_parallel(boards))
 
-    offers = offers[:limit]
-    new_count = 0
-    updated_count = 0
-    scored: list[tuple[Offer, ScoreBreakdown, bool]] = []
-    for offer in offers:
-        breakdown = score_offer(offer, profile)
-        _, created = upsert_offer(offer, score=breakdown)
-        if created:
-            new_count += 1
-        else:
-            updated_count += 1
-        scored.append((offer, breakdown, created))
+    summary_table = Table(title="Resumen por scraper")
+    summary_table.add_column("scraper")
+    summary_table.add_column("nuevas", justify="right")
+    summary_table.add_column("actualizadas", justify="right")
+    summary_table.add_column("scraped", justify="right")
+    summary_table.add_column("errores", justify="right")
 
-    record_run(source=board, new_count=new_count, updated_count=updated_count, errors=0)
+    scored_all: list[tuple[Offer, ScoreBreakdown, bool]] = []
+    for b in boards:
+        offers_res, err = results[b]
+        if err is not None or offers_res is None:
+            console.print(f"[red]ERROR[/red] {b}: {err}")
+            record_run(source=b, new_count=0, updated_count=0, errors=1)
+            summary_table.add_row(b, "0", "0", "0", "1")
+            continue
 
-    console.print(
-        f"[green]done[/green] nuevas={new_count} actualizadas={updated_count} "
-        f"total_scraped={len(offers)}"
-    )
+        offers: list[Offer] = offers_res
+        if remote_only:
+            offers = [o for o in offers if o.remote]
+        offers = offers[:limit]
 
-    scored.sort(key=lambda x: x[1].total, reverse=True)
-    top = scored[:5]
+        new_count = 0
+        updated_count = 0
+        for offer in offers:
+            breakdown = score_offer(offer, profile)
+            _, created = upsert_offer(offer, score=breakdown)
+            if created:
+                new_count += 1
+            else:
+                updated_count += 1
+            scored_all.append((offer, breakdown, created))
+
+        record_run(source=b, new_count=new_count, updated_count=updated_count, errors=0)
+        summary_table.add_row(
+            b, str(new_count), str(updated_count), str(len(offers)), "0"
+        )
+
+    console.print(summary_table)
+
+    scored_all.sort(key=lambda x: x[1].total, reverse=True)
+    top = scored_all[:5]
     if top:
-        table = Table(title="Top 5 ofertas por score")
+        table = Table(title="Top 5 ofertas por score (global)")
         table.add_column("score", justify="right")
+        table.add_column("source")
         table.add_column("titulo", overflow="fold")
         table.add_column("empresa")
         table.add_column("remote", justify="center")
         for offer, breakdown, _ in top:
             table.add_row(
                 str(breakdown.total),
+                offer.source,
                 offer.title[:80],
                 offer.company[:30],
                 "si" if offer.remote else "no",

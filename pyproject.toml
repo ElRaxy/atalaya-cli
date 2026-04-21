@@ -42,9 +42,9 @@ dev = [
 bhound = "atalaya.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/ElRaxy/atalaya"
-Repository = "https://github.com/ElRaxy/atalaya"
-Issues = "https://github.com/ElRaxy/atalaya/issues"
+Homepage = "https://github.com/ElRaxy/atalaya-cli"
+Repository = "https://github.com/ElRaxy/atalaya-cli"
+Issues = "https://github.com/ElRaxy/atalaya-cli/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["atalaya"]

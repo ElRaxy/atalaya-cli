@@ -30,10 +30,21 @@ pip install atalaya-cli
 
 ```bash
 bhound init
-bhound search --board remoteworkspain --remote-only
+bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <offer-id>
 ```
+
+### Supported job boards
+
+| Board              | Source                                         | Notes                                                                  |
+| ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| `remoteworkspain`  | remoteworkspain.es                             | JSON-LD JobPosting on detail pages.                                    |
+| `jobfluent`        | jobfluent.com                                  | Server-side HTML. Barcelona/EU startup jobs. 3 pages, rate-limited.    |
+| `himalayas`        | himalayas.app (country=Spain)                  | Remote-first. Next.js SSR HTML. 3 pages.                               |
+| `indeed_es`        | es.indeed.com                                  | Blocked by Cloudflare on direct HTTP (403). Parser ready for Playwright migration (M5). Returns empty list with warning when blocked. |
+
+Run one board with `--board <name>` or all in parallel with `--board all`.
 
 ### AI generators
 
@@ -87,10 +98,21 @@ pip install atalaya-cli
 
 ```bash
 bhound init
-bhound search --board remoteworkspain --remote-only
+bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <id-oferta>
 ```
+
+### Job boards soportados
+
+| Board              | Fuente                                          | Notas                                                                  |
+| ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| `remoteworkspain`  | remoteworkspain.es                              | JSON-LD JobPosting en paginas de detalle.                              |
+| `jobfluent`        | jobfluent.com                                   | HTML server-side. Startups Barcelona/EU. 3 paginas con rate limit.     |
+| `himalayas`        | himalayas.app (country=Spain)                   | Remote-first. Next.js SSR. 3 paginas.                                  |
+| `indeed_es`        | es.indeed.com                                   | Bloqueado por Cloudflare en HTTP directo (403). Parser listo para migrar a Playwright (M5). Devuelve lista vacia con warning cuando esta bloqueado. |
+
+Usa `--board <nombre>` para uno solo o `--board all` para correrlos en paralelo.
 
 ### Generadores IA
 

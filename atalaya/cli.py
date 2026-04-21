@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import json
+import logging
+import sys
+from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.table import Table
 
 from atalaya import __version__
@@ -16,11 +22,24 @@ from atalaya.config import (
     load_profile,
     save_profile,
 )
-from atalaya.models import Offer, ScoreBreakdown
+from atalaya.generators import (
+    ConfigError,
+    generate_cv_variant,
+    generate_letter,
+    load_base_cv,
+)
+from atalaya.models import Application, ApplicationStatus, Offer, ScoreBreakdown
 from atalaya.profile import default_profile
 from atalaya.scoring import score_offer
 from atalaya.scrapers import SCRAPERS
-from atalaya.storage import get_offer, init_db, list_offers, record_run, upsert_offer
+from atalaya.storage import (
+    get_offer,
+    init_db,
+    list_offers,
+    record_run,
+    save_application,
+    upsert_offer,
+)
 
 app = typer.Typer(
     name="bhound",
@@ -28,6 +47,19 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+
+
+def _configure_logging() -> None:
+    """Configura logging basico a stderr si el usuario no lo hizo ya."""
+    root = logging.getLogger("atalaya")
+    if not root.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
+        root.addHandler(handler)
+        root.setLevel(logging.INFO)
+
+
+_configure_logging()
 
 
 @app.command()
@@ -159,27 +191,145 @@ def _ensure_offer(offer_id: int) -> Offer:
     return offer
 
 
-@app.command()
-def letter(offer_id: int) -> None:
-    """Genera carta de presentacion tailored (TODO: integracion Claude)."""
-    offer = _ensure_offer(offer_id)
-    console.print(f"[yellow]TODO[/yellow] letter para offer #{offer.id} - {offer.title}")
+def _write_optional_out(out: str | None, content: str) -> None:
+    if out is None:
+        return
+    path = Path(out).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    console.print(f"[green]OK[/green] escrito -> {path}")
 
 
 @app.command()
-def cv(offer_id: int) -> None:
-    """Genera variante de CV para una oferta (TODO: integracion Claude)."""
+def letter(
+    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    lang: str = typer.Option("es", "--lang", help="Idioma: es | en."),
+    tone: str = typer.Option("direct", "--tone", help="Tono: direct | warm."),
+    out: str | None = typer.Option(None, "--out", help="Path opcional para guardar la carta."),
+) -> None:
+    """Genera carta de presentacion tailored para una oferta."""
+    if lang not in ("es", "en"):
+        console.print(f"[red]ERROR[/red] --lang debe ser 'es' o 'en' (dado: {lang})")
+        raise typer.Exit(code=2)
+    if tone not in ("direct", "warm"):
+        console.print(f"[red]ERROR[/red] --tone debe ser 'direct' o 'warm' (dado: {tone})")
+        raise typer.Exit(code=2)
+
     offer = _ensure_offer(offer_id)
-    console.print(f"[yellow]TODO[/yellow] cv para offer #{offer.id} - {offer.title}")
+    profile = load_profile()
+
+    try:
+        content = generate_letter(offer=offer, profile=profile, lang=lang, tone=tone)  # type: ignore[arg-type]
+    except ConfigError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+
+    application = Application(
+        offer_id=offer_id,
+        status=ApplicationStatus.DRAFTED,
+        letter_md=content,
+    )
+    save_application(application)
+
+    console.print(f"[green]OK[/green] carta generada para offer #{offer_id} ({offer.title})")
+    console.print(Markdown(content))
+    _write_optional_out(out, content)
+
+
+@app.command()
+def cv(
+    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    lang: str = typer.Option("es", "--lang", help="Idioma: es | en."),
+    out: str | None = typer.Option(None, "--out", help="Path opcional para guardar el CV."),
+    cv_base: str | None = typer.Option(None, "--cv-base", help="Directorio con cv-{lang}.md."),
+) -> None:
+    """Genera variante de CV tailored para una oferta."""
+    if lang not in ("es", "en"):
+        console.print(f"[red]ERROR[/red] --lang debe ser 'es' o 'en' (dado: {lang})")
+        raise typer.Exit(code=2)
+
+    offer = _ensure_offer(offer_id)
+    profile = load_profile()
+
+    try:
+        base_dir = Path(cv_base).expanduser() if cv_base else None
+        base_md = load_base_cv(lang, base_dir=base_dir)  # type: ignore[arg-type]
+    except FileNotFoundError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+
+    try:
+        content = generate_cv_variant(
+            offer=offer,
+            profile=profile,
+            base_cv_md=base_md,
+            lang=lang,  # type: ignore[arg-type]
+        )
+    except ConfigError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        raise typer.Exit(code=2) from exc
+
+    application = Application(
+        offer_id=offer_id,
+        status=ApplicationStatus.DRAFTED,
+        cv_variant_md=content,
+    )
+    save_application(application)
+
+    console.print(f"[green]OK[/green] CV variant generado para offer #{offer_id} ({offer.title})")
+    console.print(Markdown(content))
+    _write_optional_out(out, content)
 
 
 @app.command()
 def export(
-    fmt: str = typer.Option("csv", "--fmt", help="Formato: csv|json."),
+    fmt: str = typer.Option("csv", "--fmt", help="Formato: csv | json."),
     out: str = typer.Option("atalaya-export", "--out", help="Ruta salida (sin extension)."),
+    min_score: int = typer.Option(0, "--min-score", help="Score minimo (0-100)."),
+    limit: int = typer.Option(1000, "--limit", help="Maximo ofertas a exportar."),
 ) -> None:
-    """Exporta ofertas a CSV o JSON (TODO)."""
-    console.print(f"[yellow]TODO[/yellow] export fmt={fmt} out={out}")
+    """Exporta ofertas con score y estado de candidatura a CSV o JSON."""
+    if fmt not in ("csv", "json"):
+        console.print(f"[red]ERROR[/red] --fmt debe ser 'csv' o 'json' (dado: {fmt})")
+        raise typer.Exit(code=2)
+
+    rows = list_offers(min_score=min_score, limit=limit)
+    if not rows:
+        console.print("[yellow]sin ofertas para exportar[/yellow]")
+        return
+
+    records: list[dict[str, object]] = []
+    for offer, score, status in rows:
+        records.append(
+            {
+                "id": offer.id,
+                "source": offer.source,
+                "title": offer.title,
+                "company": offer.company,
+                "location": offer.location,
+                "remote": offer.remote,
+                "stack": ",".join(offer.stack),
+                "url": offer.url,
+                "seniority": offer.seniority,
+                "score": score if score is not None else "",
+                "application_status": status if status is not None else "",
+            }
+        )
+
+    target = Path(out).expanduser()
+    if not target.suffix:
+        target = target.with_suffix(f".{fmt}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if fmt == "csv":
+        with target.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.DictWriter(fh, fieldnames=list(records[0].keys()))
+            writer.writeheader()
+            writer.writerows(records)
+    else:
+        target.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    console.print(f"[green]OK[/green] exportadas {len(records)} ofertas -> {target}")
 
 
 if __name__ == "__main__":

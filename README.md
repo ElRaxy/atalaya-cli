@@ -30,10 +30,30 @@ pip install atalaya-cli
 
 ```bash
 bhound init
-bhound search --remote --stack mern
+bhound search --board remoteworkspain --remote-only
 bhound list --min-score 60
 bhound letter <offer-id>
 ```
+
+### AI generators
+
+Atalaya uses the Anthropic API (Claude) to generate tailored cover letters and CV variants per offer. Prompt caching is enabled on the system prompt to reduce cost across multiple calls in the same session.
+
+```bash
+bhound letter 3 --lang es
+bhound letter 3 --lang en --tone warm --out applications/zendrop-letter.md
+bhound cv 3 --lang en --out applications/zendrop-cv.md
+bhound export --fmt csv --out shortlist
+```
+
+Requires an `ANTHROPIC_API_KEY` either via environment variable or in `~/Library/Application Support/atalaya/config.toml`:
+
+```toml
+[anthropic]
+api_key = "sk-ant-..."
+```
+
+The `cv` command reads the base CV from `projects/job-search/cv/cv-{lang}.md` by default. Override with `ATALAYA_BASE_CV_DIR` or `--cv-base PATH`.
 
 ### Status
 
@@ -67,10 +87,30 @@ pip install atalaya-cli
 
 ```bash
 bhound init
-bhound search --remote --stack mern
+bhound search --board remoteworkspain --remote-only
 bhound list --min-score 60
 bhound letter <id-oferta>
 ```
+
+### Generadores IA
+
+Atalaya utiliza la API de Anthropic (Claude) para generar cartas de presentación y variantes de CV adaptadas a cada oferta. El prompt caching está activo en el system prompt para reducir coste entre llamadas sucesivas.
+
+```bash
+bhound letter 3 --lang es
+bhound letter 3 --lang en --tone warm --out applications/zendrop-letter.md
+bhound cv 3 --lang en --out applications/zendrop-cv.md
+bhound export --fmt csv --out shortlist
+```
+
+Requiere `ANTHROPIC_API_KEY` bien como variable de entorno o en `~/Library/Application Support/atalaya/config.toml`:
+
+```toml
+[anthropic]
+api_key = "sk-ant-..."
+```
+
+El comando `cv` lee el CV base de `projects/job-search/cv/cv-{lang}.md` por defecto. Se puede sobrescribir con `ATALAYA_BASE_CV_DIR` o `--cv-base PATH`.
 
 ### Estado
 

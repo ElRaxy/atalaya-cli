@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head><title>Indeed ES sample (placeholder - bloqueado por Cloudflare en HTTP directo)</title></head>
+<body>
+<!--
+  Placeholder para cuando Indeed HTTP directo funcione o cuando se use Playwright.
+  El scraper detecta el bloqueo Cloudflare 403 y devuelve lista vacia.
+  Abajo dejamos estructura tipica de card para que los tests validen el parser
+  cuando el HTML si es real.
+-->
+<div id="mosaic-zone-jobcards">
+  <ul class="jobsearch-ResultsList">
+    <li>
+      <div class="job_seen_beacon">
+        <h2 class="jobTitle">
+          <a class="jcs-JobTitle" href="/rc/clk?jk=abc123&amp;from=serp">
+            <span title="Full Stack Developer (React + Node) - Remote">Full Stack Developer (React + Node) - Remote</span>
+          </a>
+        </h2>
+        <div>
+          <span data-testid="company-name">Acme Spain SL</span>
+        </div>
+        <div data-testid="text-location">Remoto</div>
+        <div class="job-snippet">
+          <ul>
+            <li>Experiencia con React, Node.js, TypeScript y AWS.</li>
+            <li>Trabajo 100% remoto desde Espana.</li>
+          </ul>
+        </div>
+      </div>
+    </li>
+    <li>
+      <div class="job_seen_beacon">
+        <h2 class="jobTitle">
+          <a class="jcs-JobTitle" href="/rc/clk?jk=def456&amp;from=serp">
+            <span title="Senior Python Engineer - Django/FastAPI">Senior Python Engineer - Django/FastAPI</span>
+          </a>
+        </h2>
+        <div>
+          <span data-testid="company-name">Bravo Tech</span>
+        </div>
+        <div data-testid="text-location">Madrid (Hibrido)</div>
+        <div class="job-snippet">
+          <ul>
+            <li>Python senior, Django, FastAPI, PostgreSQL, Docker.</li>
+          </ul>
+        </div>
+      </div>
+    </li>
+  </ul>
+</div>
+</body>
+</html>

@@ -214,6 +214,7 @@ class RemoteOkScraper(BaseScraper):
             company_clean = html_lib.unescape(str(company).strip())
             stack = cls._extract_stack(title_clean, tags)
             seniority = cls._detect_seniority(title_clean, tags)
+            description = cls._clean_description(item.get("description"))
             raw_hash = hashlib.sha256(
                 (str(url) + title_clean).encode("utf-8")
             ).hexdigest()[:16]
@@ -227,7 +228,7 @@ class RemoteOkScraper(BaseScraper):
                     remote=True,
                     stack=stack,
                     url=str(url),
-                    description="",
+                    description=description,
                     posted_at=posted_at,
                     salary_min=salary_min,
                     salary_max=salary_max,
@@ -236,6 +237,16 @@ class RemoteOkScraper(BaseScraper):
                 )
             )
         return offers
+
+    @staticmethod
+    def _clean_description(raw: Any) -> str:
+        """RemoteOK serve HTML en `description`. Strip tags, decode entities, trim."""
+        if not isinstance(raw, str) or not raw:
+            return ""
+        text = re.sub(r"<[^>]+>", " ", raw)
+        text = html_lib.unescape(text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:5000]
 
     @staticmethod
     def _is_dev_role(position: str, tags: list[str]) -> bool:

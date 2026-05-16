@@ -165,6 +165,7 @@ class WeWorkRemotelyScraper(BaseScraper):
             stack = cls._extract_stack(position, tags)
             seniority = cls._detect_seniority(position, tags)
             posted_at = cls._parse_date(pub_date)
+            description_clean = cls._clean_description(description)
             raw_hash = hashlib.sha256(
                 (link + position).encode("utf-8")
             ).hexdigest()[:16]
@@ -178,7 +179,7 @@ class WeWorkRemotelyScraper(BaseScraper):
                     remote=True,
                     stack=stack,
                     url=link,
-                    description="",
+                    description=description_clean,
                     posted_at=posted_at,
                     salary_min=None,
                     salary_max=None,
@@ -187,6 +188,16 @@ class WeWorkRemotelyScraper(BaseScraper):
                 )
             )
         return offers
+
+    @staticmethod
+    def _clean_description(raw: str) -> str:
+        """Strip HTML, decode entities, collapse whitespace. Cap a 5000 chars."""
+        if not raw:
+            return ""
+        text = re.sub(r"<[^>]+>", " ", raw)
+        text = html_lib.unescape(text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:5000]
 
     @staticmethod
     def _split_title(title: str) -> tuple[str, str]:

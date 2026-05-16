@@ -172,6 +172,69 @@ def test_apply_warns_when_no_letter_or_cv(
     assert "warn" in r.output.lower() or "no hay carta" in r.output.lower()
 
 
+def test_apply_manual_persists_status_and_keeps_letter_cv(
+    isolated_db: Path,
+    seed_offer_with_email: int,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """apply-manual --mark-applied marca APPLIED preservando letter+cv en BD."""
+    monkeypatch.setattr(cli_module, "generate_letter", _fake_letter)
+    monkeypatch.setattr(cli_module, "generate_cv_variant", _fake_cv_variant)
+    monkeypatch.setattr(cli_module, "load_base_cv", _fake_load_base_cv)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr("atalaya.appliers.manual.copy_to_clipboard", lambda _: True)
+    monkeypatch.setattr("webbrowser.open", lambda url, **kw: None)
+
+    runner = CliRunner()
+    runner.invoke(app, ["letter", str(seed_offer_with_email)])
+    runner.invoke(app, ["cv", str(seed_offer_with_email)])
+    r = runner.invoke(
+        app, ["apply-manual", str(seed_offer_with_email), "--mark-applied"]
+    )
+    assert r.exit_code == 0, r.output
+    assert "applied" in r.output.lower()
+
+    persisted = get_application(seed_offer_with_email, db_path=isolated_db)
+    assert persisted is not None
+    assert persisted.letter_md == "CARTA_TAILORED_PRUEBA"
+    assert persisted.cv_variant_md == "CV_VARIANT_PRUEBA"
+    assert persisted.status.value == "applied"
+    assert persisted.applied_at is not None
+
+
+def test_apply_manual_dossier_files_in_output(
+    isolated_db: Path,
+    seed_offer_with_email: int,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """apply-manual sin --mark-applied solo prepara dossier + browser, no marca."""
+    monkeypatch.setattr(cli_module, "generate_letter", _fake_letter)
+    monkeypatch.setattr(cli_module, "generate_cv_variant", _fake_cv_variant)
+    monkeypatch.setattr(cli_module, "load_base_cv", _fake_load_base_cv)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr("atalaya.appliers.manual.copy_to_clipboard", lambda _: True)
+
+    opened: list[str] = []
+    monkeypatch.setattr("webbrowser.open", lambda url, **kw: opened.append(url))
+
+    runner = CliRunner()
+    runner.invoke(app, ["letter", str(seed_offer_with_email)])
+    runner.invoke(app, ["cv", str(seed_offer_with_email)])
+    r = runner.invoke(app, ["apply-manual", str(seed_offer_with_email)])
+    assert r.exit_code == 0, r.output
+    assert "dossier" in r.output.lower()
+    assert "letter ->" in r.output.lower() or "letter.md" in r.output
+    assert "cv ->" in r.output.lower() or "cv.md" in r.output
+    assert "https://example.com/zendrop" in opened
+
+    persisted = get_application(seed_offer_with_email, db_path=isolated_db)
+    assert persisted is not None
+    assert persisted.status.value == "drafted"  # NO applied sin --mark-applied
+    assert persisted.applied_at is None
+
+
 def test_apply_does_not_lose_letter_cv_when_marking_status(
     isolated_db: Path,
     seed_offer_with_email: int,

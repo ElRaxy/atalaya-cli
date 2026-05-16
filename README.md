@@ -43,8 +43,10 @@ bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <offer-id>
 bhound cv <offer-id>
-bhound apply <offer-id> --preview          # dry-run, check target without sending
-bhound apply <offer-id>                    # really send (rate-limited 5 min)
+bhound apply <offer-id> --preview               # dry-run, check email target
+bhound apply <offer-id>                         # send email (offers with contact email)
+bhound apply-manual <offer-id>                  # for form-only offers: copy letter, open browser
+bhound apply-manual <offer-id> --mark-applied   # re-run to record APPLIED in DB
 bhound apply-batch --min-score 70 --limit 5
 ```
 
@@ -78,12 +80,38 @@ bhound cv 3 --lang en --out applications/zendrop-cv.md
 bhound export --fmt csv --out shortlist
 ```
 
-Requires an `ANTHROPIC_API_KEY` either via environment variable or in `~/Library/Application Support/atalaya/config.toml`:
+### Claude backend (CLI vs API)
+
+Atalaya supports two ways to talk to Claude. The default is **CLI** — it spawns
+`claude -p` as a subprocess and rides on your existing Claude Code subscription
+(Pro / Max / Team) via the OAuth keychain. No `ANTHROPIC_API_KEY` required, no
+extra billing.
 
 ```toml
+[claude]
+backend = "cli"                   # default — uses Claude Code subscription
+model   = "claude-sonnet-4-6"     # also supports claude-haiku-4-5-20251001, claude-opus-4-7
+```
+
+Override per-call with the env var `ATALAYA_CLAUDE_BACKEND=api|cli`.
+
+To use the **API** backend (your own `ANTHROPIC_API_KEY`, separate billing):
+
+```bash
+pip install atalaya-cli[api]
+```
+
+Then in `config.toml`:
+
+```toml
+[claude]
+backend = "api"
+
 [anthropic]
 api_key = "sk-ant-..."
 ```
+
+(`ANTHROPIC_API_KEY` env var is also picked up.)
 
 The `cv` command reads the base CV from `projects/job-search/cv/cv-{lang}.md` by default
 (relative to the directory you run `bhound` from). Override with the env var
@@ -122,10 +150,31 @@ starttls = true
 **Rate-limit**: persistent across CLI invocations, 5 min between applies + random jitter (±90s).
 Override with `--force` (carries detection risk).
 
-**LinkedIn Easy Apply / InfoJobs forms** are intentionally **not** implemented in Atalaya.
-After evaluating (2026-05-16) the trade-off — Selenium/Playwright against LinkedIn anti-bot
-is brittle, breaks on every DOM change, and carries real ban risk on a personal account —
-we decided to skip it. For Easy Apply, see external tools below.
+### Manual-assisted apply (for forms-only offers)
+
+LinkedIn, InfoJobs, Tecnoempleo and most company portals require their own form
+(no email exposed). Atalaya helps you apply to those in ~30s per offer **without
+any automation against the platform** (zero ban risk):
+
+```bash
+bhound apply-manual 42                   # prepares dossier, opens browser
+# (paste letter in the form, attach CV, click Submit yourself)
+bhound apply-manual 42 --mark-applied    # re-run to record APPLIED in DB
+```
+
+What it does:
+
+1. Recovers the persisted letter + CV variant from SQLite.
+2. Writes both to `<tmp>/atalaya-apply-<id>/{letter.md,cv.md}` (paths printed).
+3. Copies the cover letter to your system clipboard (Windows `clip` / macOS
+   `pbcopy` / Linux `xclip`/`xsel`/`wl-copy`).
+4. Opens the offer URL in your default browser.
+5. You paste, attach the CV file, click Submit in the browser.
+6. Re-run with `--mark-applied` to mark the offer as APPLIED in the DB.
+
+**Automated LinkedIn Easy Apply / InfoJobs Playwright are intentionally not implemented**
+(ADR-0047, 2026-05-16). Selenium/Playwright against anti-bot detection is brittle and
+carries real ban risk on a personal account.
 
 ### External tools (LinkedIn Easy Apply)
 
@@ -202,8 +251,10 @@ bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <id-oferta>
 bhound cv <id-oferta>
-bhound apply <id-oferta> --preview         # dry-run, verifica destinatario
-bhound apply <id-oferta>                   # envía de verdad (rate-limit 5 min)
+bhound apply <id-oferta> --preview              # dry-run, verifica email destino
+bhound apply <id-oferta>                        # envía email (ofertas con email contacto)
+bhound apply-manual <id-oferta>                 # ofertas con form: copia carta, abre navegador
+bhound apply-manual <id-oferta> --mark-applied  # re-ejecuta para registrar APPLIED en BD
 bhound apply-batch --min-score 70 --limit 5
 ```
 
@@ -237,12 +288,37 @@ bhound cv 3 --lang en --out applications/zendrop-cv.md
 bhound export --fmt csv --out shortlist
 ```
 
-Requiere `ANTHROPIC_API_KEY` bien como variable de entorno o en `~/Library/Application Support/atalaya/config.toml`:
+### Backend Claude (CLI vs API)
+
+Atalaya soporta dos formas de hablar con Claude. El default es **CLI** — lanza
+`claude -p` por subprocess y reutiliza tu suscripción Claude Code (Pro / Max /
+Team) vía OAuth keychain. **Sin `ANTHROPIC_API_KEY`, sin facturación extra.**
 
 ```toml
+[claude]
+backend = "cli"                   # default — tira de tu suscripción Claude Code
+model   = "claude-sonnet-4-6"     # también claude-haiku-4-5-20251001, claude-opus-4-7
+```
+
+Override por llamada con `ATALAYA_CLAUDE_BACKEND=api|cli`.
+
+Para usar el backend **API** (tu propia `ANTHROPIC_API_KEY`, facturación aparte):
+
+```bash
+pip install atalaya-cli[api]
+```
+
+Y en `config.toml`:
+
+```toml
+[claude]
+backend = "api"
+
 [anthropic]
 api_key = "sk-ant-..."
 ```
+
+(`ANTHROPIC_API_KEY` env var también se reconoce.)
 
 El comando `cv` lee el CV base de `projects/job-search/cv/cv-{lang}.md` por defecto
 (relativo al directorio desde el que se ejecuta `bhound`). Se puede sobrescribir con la
@@ -281,9 +357,31 @@ starttls = true
 **Rate-limit**: persistente entre invocaciones CLI, 5 min entre applies + jitter aleatorio (±90s).
 Saltable con `--force` (riesgo de detección).
 
-**LinkedIn Easy Apply / InfoJobs forms** se han **descartado** (2026-05-16). Selenium/Playwright
-contra LinkedIn anti-bot es frágil, se rompe con cada cambio de DOM y supone riesgo real de
-ban en la cuenta personal. Atalaya queda solo email apply. Ver tools externas abajo.
+### Apply manual asistido (ofertas con formulario)
+
+LinkedIn, InfoJobs, Tecnoempleo y la mayoría de portales de empresa usan formulario
+propio (sin email expuesto). Atalaya te ayuda a aplicar a esas en ~30s por oferta
+**sin automation contra la plataforma** (cero riesgo de ban):
+
+```bash
+bhound apply-manual 42                   # prepara dossier, abre navegador
+# (pegas carta en form, adjuntas CV, clicas Submit tú mismo)
+bhound apply-manual 42 --mark-applied    # re-ejecuta para registrar APPLIED en BD
+```
+
+Qué hace:
+
+1. Recupera carta + CV variant persistidos en SQLite.
+2. Escribe ambos a `<tmp>/atalaya-apply-<id>/{letter.md,cv.md}` (rutas en stdout).
+3. Copia la carta al portapapeles del sistema (Windows `clip` / macOS `pbcopy` /
+   Linux `xclip`/`xsel`/`wl-copy`).
+4. Abre la URL de la oferta en tu navegador por defecto.
+5. Tú pegas, adjuntas el CV, clicas Submit en el navegador.
+6. Re-ejecutas con `--mark-applied` para registrar la oferta como APPLIED en BD.
+
+**LinkedIn Easy Apply / InfoJobs Playwright automatizados se han descartado**
+intencionalmente (ADR-0047, 2026-05-16). Selenium/Playwright contra anti-bot detection
+es frágil y supone riesgo real de ban en cuenta personal.
 
 ### Herramientas externas (LinkedIn Easy Apply)
 

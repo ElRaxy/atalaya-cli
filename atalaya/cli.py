@@ -16,7 +16,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 
 from atalaya import __version__
-from atalaya.appliers import ApplyStatus, EmailApplier, RateLimiter
+from atalaya.appliers import ApplyStatus, EmailApplier, ManualApplier, RateLimiter
 from atalaya.config import (
     get_config_path,
     get_db_path,
@@ -396,6 +396,76 @@ def apply(
         f"[{color}]{result.status.value}[/{color}] offer #{offer_id} ({offer.title}) "
         f"-> {result.detail}"
     )
+
+
+@app.command(name="apply-manual")
+def apply_manual(
+    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    mark_applied: bool = typer.Option(
+        False,
+        "--mark-applied",
+        help="Marca la oferta como APPLIED en BD tras preparar dossier (úsalo "
+        "DESPUÉS de hacer click submit manualmente).",
+    ),
+    no_browser: bool = typer.Option(
+        False, "--no-browser", help="No abrir navegador automáticamente."
+    ),
+) -> None:
+    """Apply manual asistido — para ofertas LinkedIn/InfoJobs/Tecnoempleo/etc que
+    requieren formulario propio.
+
+    Atalaya prepara un dossier (carta + CV en archivos), copia la carta al
+    portapapeles y abre la URL de la oferta en el navegador. Tú pegas, adjuntas,
+    clicas Submit manualmente. Cero riesgo de ban.
+    """
+    offer = _ensure_offer(offer_id)
+    profile = load_profile()
+
+    application = get_application(offer_id) or Application(offer_id=offer_id)
+    if not application.letter_md and not application.cv_variant_md:
+        console.print(
+            "[yellow]warn[/yellow] no hay carta ni CV variant guardados — "
+            "considera correr `bhound letter` y `bhound cv` antes."
+        )
+
+    applier = ManualApplier(mark_applied=mark_applied, open_browser=not no_browser)
+    result = applier.apply(offer, application, profile)
+
+    dossier = applier.last_dossier
+    if dossier is not None:
+        console.print(f"[cyan]dossier[/cyan] -> {dossier.folder}")
+        if dossier.letter_path:
+            console.print(f"  letter -> {dossier.letter_path}")
+        if dossier.cv_path:
+            console.print(f"  cv     -> {dossier.cv_path}")
+        if dossier.clipboard_copied:
+            console.print("[green]OK[/green] carta copiada al portapapeles")
+        elif application.letter_md:
+            console.print(
+                "[yellow]warn[/yellow] no se pudo copiar al portapapeles — "
+                f"abre {dossier.letter_path} y copia manualmente"
+            )
+
+    merge_application(
+        Application(
+            offer_id=offer_id,
+            status=_resolve_apply_status(result.status),
+            letter_md=application.letter_md,
+            cv_variant_md=application.cv_variant_md,
+            applied_at=(
+                datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
+            ),
+            notes=f"applier={applier.name} status={result.status.value} | {result.detail}",
+        )
+    )
+
+    color = "green" if result.status == ApplyStatus.APPLIED else "cyan"
+    console.print(f"[{color}]{result.status.value}[/{color}] -> {result.detail}")
+    if not mark_applied and result.status == ApplyStatus.SKIPPED_PREVIEW:
+        console.print(
+            "[dim]Tras enviar el form en el navegador, re-ejecuta con `--mark-applied` "
+            "para registrarlo como APPLIED en BD.[/dim]"
+        )
 
 
 @app.command(name="apply-batch")

@@ -15,12 +15,14 @@ from __future__ import annotations
 
 from atalaya.appliers.base import ApplyResult, ApplyStatus, BaseApplier
 from atalaya.appliers.email_apply import EmailApplier
+from atalaya.appliers.manual import ManualApplier, ManualDossier, copy_to_clipboard
 from atalaya.appliers.rate_limit import RateLimiter
 
 # Registry: source name (= scraper.name) → applier class. None = sin applier específico,
 # fallback a EmailApplier si description tiene email.
 APPLIERS: dict[str, type[BaseApplier]] = {
     "email": EmailApplier,
+    "manual": ManualApplier,
 }
 
 
@@ -36,6 +38,9 @@ __all__ = [
     "ApplyStatus",
     "BaseApplier",
     "EmailApplier",
+    "ManualApplier",
+    "ManualDossier",
     "RateLimiter",
+    "copy_to_clipboard",
     "select_applier",
 ]

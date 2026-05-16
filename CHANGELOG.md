@@ -7,6 +7,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Code subprocess backend (default)** — Atalaya tira de la suscripción
+  Claude Code (Pro / Max / Team) vía OAuth keychain. Sin `ANTHROPIC_API_KEY`,
+  sin facturación extra. `[claude] backend = "cli"` en `config.toml`. Backend
+  histórico API queda como opt-in via `pip install atalaya-cli[api]`.
+- **`bhound apply-manual <id>`** — apply asistido para ofertas con formulario
+  (LinkedIn / InfoJobs / portales empresa). Prepara dossier en tmp dir, copia
+  la carta al clipboard, abre la URL en navegador. Cero automation contra la
+  plataforma → cero riesgo de ban. Flag `--mark-applied` para registrar APPLIED
+  en BD tras el submit manual.
+- **Description enrichment en RemoteOK + WWR** — los scrapers ahora pueblan
+  `Offer.description` con HTML stripped del payload, lo que permite a
+  `EmailApplier` extraer emails de contacto cuando la oferta los expone (subida
+  significativa del % auto-applicable real).
+
+### Changed
+
+- `anthropic` SDK movido a optional dependency (`[api]`). La instalación base
+  no lo trae.
+
+### Fixed
+
+- (Ya en 0.1.0 pero re-listado por claridad): bug #1 `apply` ignoraba carta+CV
+  persistidos; bug #2 `letter`/`cv` se machacaban mutuamente.
+
 ## [0.1.0] — 2026-05-16
 
 Initial alpha release. Functional end-to-end pipeline: scrape → score → tailored

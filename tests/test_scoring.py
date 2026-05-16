@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from atalaya.models import Offer, Profile
-from atalaya.scoring import score_offer
+from atalaya.scoring import _freshness_modifier, score_offer
 
 
 def _profile() -> Profile:
@@ -84,3 +84,44 @@ def test_total_bounds_0_100() -> None:
     offer = _offer(stack=[], remote=False, seniority="senior", description="")
     breakdown = score_offer(offer, _profile())
     assert 0 <= breakdown.total <= 100
+
+
+def test_freshness_boost_for_recent_offer() -> None:
+    now = datetime(2026, 5, 16, tzinfo=UTC)
+    offer = _offer(posted_at=datetime(2026, 5, 13, tzinfo=UTC))
+    assert _freshness_modifier(offer, now=now) == 5
+
+
+def test_freshness_penalty_for_stale_offer() -> None:
+    now = datetime(2026, 5, 16, tzinfo=UTC)
+    offer = _offer(posted_at=datetime(2026, 4, 10, tzinfo=UTC))
+    assert _freshness_modifier(offer, now=now) == -5
+
+
+def test_freshness_neutral_for_mid_age() -> None:
+    now = datetime(2026, 5, 16, tzinfo=UTC)
+    offer = _offer(posted_at=datetime(2026, 4, 28, tzinfo=UTC))
+    assert _freshness_modifier(offer, now=now) == 0
+
+
+def test_freshness_handles_missing_date() -> None:
+    offer = _offer(posted_at=None)
+    assert _freshness_modifier(offer) == 0
+
+
+def test_freshness_handles_naive_datetime() -> None:
+    now = datetime(2026, 5, 16, tzinfo=UTC)
+    offer = _offer(posted_at=datetime(2026, 5, 14))  # naive
+    assert _freshness_modifier(offer, now=now) == 5
+
+
+def test_total_includes_freshness_modifier() -> None:
+    now_fresh = datetime(2026, 5, 16, tzinfo=UTC)
+    fresh = _offer(posted_at=datetime(2026, 5, 14, tzinfo=UTC))
+    stale = _offer(posted_at=datetime(2026, 1, 1, tzinfo=UTC))
+    # Mismas características salvo fecha → freshness mueve total
+    b_fresh = score_offer(fresh, _profile())
+    b_stale = score_offer(stale, _profile())
+    assert b_fresh.total > b_stale.total
+    # Cuando se filtra ahora _freshness_modifier internamente:
+    assert _freshness_modifier(fresh, now=now_fresh) == 5

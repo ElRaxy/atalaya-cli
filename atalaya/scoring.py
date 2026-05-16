@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from atalaya.models import Offer, Profile, ScoreBreakdown
 
 _WEIGHT_STACK = 0.50
@@ -11,6 +13,11 @@ _WEIGHT_LANGUAGE = 0.10
 
 _SENIORITY_ORDER = {"intern": 0, "junior": 1, "mid": 2, "senior": 3, "lead": 4, "staff": 5}
 _LANG_EUROPEAN = {"en", "es", "ca", "va", "pt", "it", "fr", "de"}
+
+_FRESHNESS_DAYS_FRESH = 7
+_FRESHNESS_DAYS_STALE = 30
+_FRESHNESS_BOOST = 5
+_FRESHNESS_PENALTY = -5
 
 
 def _normalize(values: list[str]) -> set[str]:
@@ -74,17 +81,36 @@ def _language_score(offer: Offer, profile: Profile) -> int:
     return 30
 
 
+def _freshness_modifier(offer: Offer, now: datetime | None = None) -> int:
+    """+5 si oferta < 7 días, -5 si > 30 días, 0 entre medias o sin fecha."""
+    if offer.posted_at is None:
+        return 0
+    current = now if now is not None else datetime.now(UTC)
+    posted = offer.posted_at
+    if posted.tzinfo is None:
+        posted = posted.replace(tzinfo=UTC)
+    age_days = (current - posted).days
+    if age_days < 0:
+        return 0
+    if age_days <= _FRESHNESS_DAYS_FRESH:
+        return _FRESHNESS_BOOST
+    if age_days >= _FRESHNESS_DAYS_STALE:
+        return _FRESHNESS_PENALTY
+    return 0
+
+
 def score_offer(offer: Offer, profile: Profile) -> ScoreBreakdown:
     stack = _stack_score(offer, profile)
     remote = _remote_score(offer, profile)
     seniority = _seniority_score(offer, profile)
     language = _language_score(offer, profile)
-    total = round(
+    base = (
         stack * _WEIGHT_STACK
         + remote * _WEIGHT_REMOTE
         + seniority * _WEIGHT_SENIORITY
         + language * _WEIGHT_LANGUAGE
     )
+    total = round(base + _freshness_modifier(offer))
     total = max(0, min(100, total))
     return ScoreBreakdown(
         total=total,

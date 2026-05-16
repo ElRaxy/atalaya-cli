@@ -111,8 +111,21 @@ starttls = true
 **Rate-limit**: persistent across CLI invocations, 5 min between applies + random jitter (±90s).
 Override with `--force` (carries detection risk).
 
-**LinkedIn Easy Apply / InfoJobs forms** (Playwright) are planned for M6.2 — currently
-only email-based apply is supported. For the others, `bhound list` + manual click.
+**LinkedIn Easy Apply / InfoJobs forms** are intentionally **not** implemented in Atalaya.
+After evaluating (2026-05-16) the trade-off — Selenium/Playwright against LinkedIn anti-bot
+is brittle, breaks on every DOM change, and carries real ban risk on a personal account —
+we decided to skip it. For Easy Apply, see external tools below.
+
+### External tools (LinkedIn Easy Apply)
+
+Atalaya is intentionally email-apply-only. If you need LinkedIn Easy Apply automation,
+combine Atalaya (scoring + tailored letters + CV variants) with one of these external tools:
+
+- **Manual outreach to recruiters** — empirically more effective than mass Easy Apply.
+- **Simplify.jobs** (free Chrome extension) — autofills forms per-offer.
+- **LazyApply** (paid SaaS, ~$129) — mass Easy Apply for LinkedIn.
+
+These run independently; Atalaya does not depend on or integrate with any of them.
 
 ### Email ingest (M7)
 
@@ -246,7 +259,20 @@ starttls = true
 **Rate-limit**: persistente entre invocaciones CLI, 5 min entre applies + jitter aleatorio (±90s).
 Saltable con `--force` (riesgo de detección).
 
-**LinkedIn Easy Apply / InfoJobs forms** (Playwright) — planeados M6.2. Por ahora solo email apply.
+**LinkedIn Easy Apply / InfoJobs forms** se han **descartado** (2026-05-16). Selenium/Playwright
+contra LinkedIn anti-bot es frágil, se rompe con cada cambio de DOM y supone riesgo real de
+ban en la cuenta personal. Atalaya queda solo email apply. Ver tools externas abajo.
+
+### Herramientas externas (LinkedIn Easy Apply)
+
+Atalaya es email-apply-only por diseño. Si necesitas Easy Apply LinkedIn, combina Atalaya
+(scoring + cartas + CVs tailored) con alguna tool externa:
+
+- **Outreach manual a recruiters** — empíricamente más efectivo que Easy Apply masivo.
+- **Simplify.jobs** (extensión Chrome gratis) — autofill formularios uno a uno.
+- **LazyApply** (SaaS pago, ~$129) — Easy Apply masivo LinkedIn.
+
+Funcionan de forma independiente; Atalaya no depende ni integra con ninguna.
 
 ### Ingesta de email (M7)
 

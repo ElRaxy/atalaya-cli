@@ -5,6 +5,7 @@ from __future__ import annotations
 from atalaya.scrapers.base import BaseScraper
 from atalaya.scrapers.himalayas import HimalayasScraper
 from atalaya.scrapers.indeed_es import IndeedEsScraper
+from atalaya.scrapers.infojobs import InfoJobsScraper
 from atalaya.scrapers.jobfluent import JobFluentScraper
 from atalaya.scrapers.remoteok import RemoteOkScraper
 from atalaya.scrapers.remoteworkspain import RemoteWorkSpainScraper
@@ -19,6 +20,7 @@ SCRAPERS: dict[str, type[BaseScraper]] = {
     RemoteOkScraper.name: RemoteOkScraper,
     WeWorkRemotelyScraper.name: WeWorkRemotelyScraper,
     TecnoempleoScraper.name: TecnoempleoScraper,
+    InfoJobsScraper.name: InfoJobsScraper,
 }
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
     "BaseScraper",
     "HimalayasScraper",
     "IndeedEsScraper",
+    "InfoJobsScraper",
     "JobFluentScraper",
     "RemoteOkScraper",
     "RemoteWorkSpainScraper",

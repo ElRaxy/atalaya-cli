@@ -177,12 +177,11 @@ class TecnoempleoScraper(BaseScraper):
         # Legacy/fixture:  /ofertas-trabajo/<slug>/rf-<id>/
         if "/rf-" not in href:
             return False
-        if href.startswith("https://www.tecnoempleo.com/") or href.startswith("/"):
-            # exclude navigation/static URLs
-            if "/ofertas-trabajo/?" in href or href.rstrip("/").endswith("/ofertas-trabajo"):
-                return False
-            return True
-        return False
+        is_internal = href.startswith("https://www.tecnoempleo.com/") or href.startswith("/")
+        if not is_internal:
+            return False
+        is_nav = "/ofertas-trabajo/?" in href or href.rstrip("/").endswith("/ofertas-trabajo")
+        return not is_nav
 
     @staticmethod
     def _normalize_url(href: str) -> str:

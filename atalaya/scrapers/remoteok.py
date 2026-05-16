@@ -242,22 +242,11 @@ class RemoteOkScraper(BaseScraper):
         position_low = position.lower()
         tags_low = {t.lower() for t in tags}
 
-        # Substring match on position only — keywords are specific enough.
-        for kw in _DEV_TAG_KEYWORDS:
-            if kw in position_low:
-                return True
-
-        # Exact-token match on tags (short ambiguous tokens like "go", "ai").
-        for token in _DEV_TAG_EXACT:
-            if token in tags_low:
-                return True
-
-        # Also accept any _DEV_TAG_KEYWORDS as an exact tag.
-        for kw in _DEV_TAG_KEYWORDS:
-            if kw in tags_low:
-                return True
-
-        return False
+        if any(kw in position_low for kw in _DEV_TAG_KEYWORDS):
+            return True
+        if any(token in tags_low for token in _DEV_TAG_EXACT):
+            return True
+        return any(kw in tags_low for kw in _DEV_TAG_KEYWORDS)
 
     @staticmethod
     def _is_compatible_location(location: str) -> bool:

@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from atalaya.config import get_db_path
-from atalaya.models import Application, Offer, ScoreBreakdown
+from atalaya.models import Application, ApplicationStatus, Offer, ScoreBreakdown
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS offers (
@@ -227,7 +227,31 @@ def get_offer(offer_id: int, db_path: Path | None = None) -> Offer | None:
         return _row_to_offer(row) if row is not None else None
 
 
+def get_application(offer_id: int, db_path: Path | None = None) -> Application | None:
+    """Recupera la `Application` persistida (carta + CV variant + status) si existe."""
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM applications WHERE offer_id = ?", (offer_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        applied_at = row["applied_at"]
+        return Application(
+            offer_id=int(row["offer_id"]),
+            status=ApplicationStatus(row["status"]),
+            letter_md=row["letter_md"] or "",
+            cv_variant_md=row["cv_variant_md"] or "",
+            applied_at=datetime.fromisoformat(applied_at) if applied_at else None,
+            notes=row["notes"] or "",
+        )
+
+
 def save_application(app: Application, db_path: Path | None = None) -> None:
+    """Upsert raw. Sobrescribe TODOS los campos con los del `app` recibido.
+
+    Usar `merge_application` cuando el caller quiere preservar campos previos
+    (letter_md, cv_variant_md) si el nuevo `app` los tiene vacíos.
+    """
     with get_conn(db_path) as conn:
         conn.execute(
             """
@@ -249,6 +273,30 @@ def save_application(app: Application, db_path: Path | None = None) -> None:
                 app.notes,
             ),
         )
+
+
+def merge_application(app: Application, db_path: Path | None = None) -> Application:
+    """Upsert respetando campos previos no-vacíos.
+
+    Si una Application existente tiene `letter_md="X"` y se llama con `app.letter_md=""`,
+    el "X" sobrevive. Mismo para `cv_variant_md`. `status`, `applied_at` y `notes` se
+    actualizan SIEMPRE (son el estado más reciente).
+
+    Devuelve la `Application` final tras el merge.
+    """
+    existing = get_application(app.offer_id, db_path=db_path)
+    merged_letter = app.letter_md or (existing.letter_md if existing else "")
+    merged_cv = app.cv_variant_md or (existing.cv_variant_md if existing else "")
+    merged = Application(
+        offer_id=app.offer_id,
+        status=app.status,
+        letter_md=merged_letter,
+        cv_variant_md=merged_cv,
+        applied_at=app.applied_at,
+        notes=app.notes,
+    )
+    save_application(merged, db_path=db_path)
+    return merged
 
 
 def is_email_seen(message_id: str, db_path: Path | None = None) -> bool:

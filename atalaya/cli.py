@@ -38,11 +38,12 @@ from atalaya.profile import default_profile
 from atalaya.scoring import score_offer
 from atalaya.scrapers import SCRAPERS
 from atalaya.storage import (
+    get_application,
     get_offer,
     init_db,
     list_offers,
+    merge_application,
     record_run,
-    save_application,
     upsert_offer,
 )
 
@@ -275,7 +276,7 @@ def letter(
         status=ApplicationStatus.DRAFTED,
         letter_md=content,
     )
-    save_application(application)
+    merge_application(application)
 
     console.print(f"[green]OK[/green] carta generada para offer #{offer_id} ({offer.title})")
     console.print(Markdown(content))
@@ -320,7 +321,7 @@ def cv(
         status=ApplicationStatus.DRAFTED,
         cv_variant_md=content,
     )
-    save_application(application)
+    merge_application(application)
 
     console.print(f"[green]OK[/green] CV variant generado para offer #{offer_id} ({offer.title})")
     console.print(Markdown(content))
@@ -344,16 +345,21 @@ def apply(
         False, "--force", help="Ignora rate-limit. Cuidado: riesgo de ban si abusas."
     ),
 ) -> None:
-    """Aplica a una oferta concreta usando el applier disponible (email por defecto)."""
+    """Aplica a una oferta concreta usando el applier disponible (email por defecto).
+
+    Recupera `Application` persistida (letter_md + cv_variant_md) si existen — el flujo
+    esperado es `bhound letter <id>` y `bhound cv <id>` ANTES de `bhound apply <id>`.
+    Si no existen, se aplica con body fallback corto y sin CV adjunto (warning visible).
+    """
     offer = _ensure_offer(offer_id)
     profile = load_profile()
 
-    # Application: usa letter/cv ya generados si existen, sino vacía.
-    application = Application(offer_id=offer_id)
-    # Si existe Application previa, recuperar letter_md/cv_variant_md no es trivial
-    # (no hay get_application). Pero save_application hace upsert, así que basta
-    # con regenerar o aceptar la versión vacía. Para esta versión: no recuperamos —
-    # el usuario debe correr `bhound letter <id>` y `bhound cv <id>` antes.
+    application = get_application(offer_id) or Application(offer_id=offer_id)
+    if not application.letter_md and not application.cv_variant_md:
+        console.print(
+            "[yellow]warn[/yellow] no hay carta ni CV variant guardados — "
+            "considera correr `bhound letter` y `bhound cv` antes."
+        )
 
     limiter = RateLimiter()
     if not force and not limiter.acquire():
@@ -367,17 +373,18 @@ def apply(
     applier = EmailApplier()
     result = applier.apply(offer, application, profile, preview=preview)
 
-    application = Application(
-        offer_id=offer_id,
-        status=_resolve_apply_status(result.status),
-        letter_md=application.letter_md,
-        cv_variant_md=application.cv_variant_md,
-        applied_at=(
-            datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
-        ),
-        notes=f"applier={applier.name} status={result.status.value} | {result.detail}",
+    merge_application(
+        Application(
+            offer_id=offer_id,
+            status=_resolve_apply_status(result.status),
+            letter_md=application.letter_md,
+            cv_variant_md=application.cv_variant_md,
+            applied_at=(
+                datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
+            ),
+            notes=f"applier={applier.name} status={result.status.value} | {result.detail}",
+        )
     )
-    save_application(application)
 
     color = {
         ApplyStatus.APPLIED: "green",
@@ -437,14 +444,17 @@ def apply_batch(
             )
             break
 
-        application = Application(offer_id=offer.id or 0)
+        offer_id = offer.id or 0
+        application = get_application(offer_id) or Application(offer_id=offer_id)
         result = applier.apply(offer, application, profile, preview=preview)
         app_status = _resolve_apply_status(result.status)
 
-        save_application(
+        merge_application(
             Application(
-                offer_id=offer.id or 0,
+                offer_id=offer_id,
                 status=app_status,
+                letter_md=application.letter_md,
+                cv_variant_md=application.cv_variant_md,
                 applied_at=(
                     datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
                 ),

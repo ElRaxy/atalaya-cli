@@ -20,7 +20,8 @@
 
 `atalaya-cli` is a Python CLI that:
 
-1. Aggregates remote dev offers from **9 job boards** (Spanish + EU + global remote).
+1. Aggregates remote dev offers from **8 working job boards + 1 parser-ready** (Indeed ES,
+   blocked by Cloudflare on direct HTTP — Playwright fallback planned but not shipped).
 2. Deduplicates and stores them locally (SQLite).
 3. Scores each offer against your profile (stack, seniority, location).
 4. Generates tailored cover letters and CV variants with the Claude API.
@@ -63,7 +64,8 @@ bhound apply-batch --min-score 70 --limit 5
 
 Run one board with `--board <name>` or all in parallel with `--board all`.
 
-Typical run yields **~300 offers across 9 boards** before scoring + deduplication.
+Typical run yields **~300 offers across 8 working boards** before scoring + deduplication.
+`indeed_es` returns 0 offers until the Playwright fallback ships.
 
 ### AI generators
 
@@ -83,13 +85,22 @@ Requires an `ANTHROPIC_API_KEY` either via environment variable or in `~/Library
 api_key = "sk-ant-..."
 ```
 
-The `cv` command reads the base CV from `projects/job-search/cv/cv-{lang}.md` by default. Override with `ATALAYA_BASE_CV_DIR` or `--cv-base PATH`.
+The `cv` command reads the base CV from `projects/job-search/cv/cv-{lang}.md` by default
+(relative to the directory you run `bhound` from). Override with the env var
+`ATALAYA_BASE_CV_DIR` (absolute path to the directory containing `cv-es.md` / `cv-en.md`)
+or the per-call flag `--cv-base PATH`. The file format is plain Markdown — Atalaya passes
+it verbatim to the Claude API as the base CV to tailor against each offer.
 
 ### Automatic apply (M6)
 
-Atalaya can send your cover letter + CV variant by email to offers that expose a contact address:
+Atalaya can send your cover letter + CV variant by email to offers that expose a contact address.
+The expected flow is **`letter` → `cv` → `apply`** — `apply` recovers the persisted letter and
+CV variant from the local SQLite and reuses them. If neither has been generated for the offer,
+`apply` emits a warning and falls back to a short generic body without attachment.
 
 ```bash
+bhound letter 42                 # generate tailored cover letter (saved to DB)
+bhound cv 42                     # generate tailored CV variant   (saved to DB, preserves letter)
 bhound apply 42 --preview        # show what would happen, no email sent
 bhound apply 42                  # actually send (5-min rate-limit enforced)
 bhound apply-batch --min-score 70 --limit 5
@@ -168,7 +179,8 @@ MIT
 
 `atalaya-cli` es un CLI Python que:
 
-1. Agrega ofertas dev remoto desde **9 job boards** (España + EU + global remote).
+1. Agrega ofertas dev remoto desde **8 job boards operativos + 1 parser-ready** (Indeed ES,
+   bloqueado por Cloudflare en HTTP directo — fallback Playwright planeado, no enviado).
 2. Deduplica y almacena localmente (SQLite).
 3. Puntúa cada oferta contra tu perfil (stack, seniority, ubicación).
 4. Genera cartas de presentación y variantes de CV personalizadas con la API de Claude.
@@ -211,7 +223,8 @@ bhound apply-batch --min-score 70 --limit 5
 
 Usa `--board <nombre>` para uno solo o `--board all` para correrlos en paralelo.
 
-Un run típico produce **~300 ofertas across 9 boards** antes de scoring + dedup.
+Un run típico produce **~300 ofertas across 8 boards operativos** antes de scoring + dedup.
+`indeed_es` devuelve 0 ofertas hasta que llegue el fallback Playwright.
 
 ### Generadores IA
 
@@ -231,13 +244,22 @@ Requiere `ANTHROPIC_API_KEY` bien como variable de entorno o en `~/Library/Appli
 api_key = "sk-ant-..."
 ```
 
-El comando `cv` lee el CV base de `projects/job-search/cv/cv-{lang}.md` por defecto. Se puede sobrescribir con `ATALAYA_BASE_CV_DIR` o `--cv-base PATH`.
+El comando `cv` lee el CV base de `projects/job-search/cv/cv-{lang}.md` por defecto
+(relativo al directorio desde el que se ejecuta `bhound`). Se puede sobrescribir con la
+variable de entorno `ATALAYA_BASE_CV_DIR` (path absoluto a la carpeta con `cv-es.md` /
+`cv-en.md`) o el flag `--cv-base PATH` por llamada. El formato es Markdown plano —
+Atalaya lo pasa textual a la API de Claude como el CV base que adaptar a cada oferta.
 
 ### Apply automático (M6)
 
-Atalaya puede enviar tu carta + variante CV por email a ofertas que expongan dirección de contacto:
+Atalaya puede enviar tu carta + variante CV por email a ofertas que expongan dirección de contacto.
+El flujo esperado es **`letter` → `cv` → `apply`** — `apply` recupera la carta y el CV
+persistidos en SQLite y los reutiliza. Si no se han generado para la oferta, `apply` emite
+un warning y cae al cuerpo genérico corto sin adjunto.
 
 ```bash
+bhound letter 42                 # genera carta tailored (guardada en DB)
+bhound cv 42                     # genera CV variant     (guardado en DB, preserva carta)
 bhound apply 42 --preview        # muestra qué pasaría, no envía
 bhound apply 42                  # envía de verdad (rate-limit 5 min activo)
 bhound apply-batch --min-score 70 --limit 5

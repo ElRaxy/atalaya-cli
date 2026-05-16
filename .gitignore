@@ -40,3 +40,6 @@ config.local.toml
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code session state (local)
+.claude/.last-stop

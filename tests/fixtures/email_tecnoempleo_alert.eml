@@ -1,0 +1,22 @@
+From: Alertas Tecnoempleo <alertas@tecnoempleo.com>
+To: alex@example.com
+Subject: Nuevas ofertas para tu busqueda en Tecnoempleo
+Date: Fri, 15 May 2026 07:55:00 +0200
+Message-ID: <tecnoempleo-test-001@tecnoempleo.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><body>
+<div>
+  <a href="https://www.tecnoempleo.com/desarrollador-junior-python-django/python/rf-1a2b3c">Desarrollador Junior Python / Django</a>
+  <p>Empresa: TechHouse | Localidad: Madrid (Remoto)</p>
+</div>
+<div>
+  <a href="https://www.tecnoempleo.com/fullstack-senior-typescript/typescript/rf-2b3c4d">Fullstack Senior TypeScript</a>
+  <p>Empresa: BetaSoft | Localidad: Barcelona</p>
+</div>
+<div>
+  <a href="https://www.tecnoempleo.com/frontend-react-junior/react/rf-3c4d5e">Frontend React Junior</a>
+  <p>Empresa: Coderon | Localidad: Valencia</p>
+</div>
+</body></html>

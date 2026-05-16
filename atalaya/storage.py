@@ -52,8 +52,17 @@ CREATE TABLE IF NOT EXISTS runs (
     ran_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS email_seen (
+    message_id TEXT PRIMARY KEY,
+    folder TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    ingested_at TEXT NOT NULL,
+    offers_count INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_offers_score ON offers(score DESC);
 CREATE INDEX IF NOT EXISTS idx_offers_posted ON offers(posted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_seen_folder ON email_seen(folder, ingested_at DESC);
 """
 
 
@@ -238,6 +247,45 @@ def save_application(app: Application, db_path: Path | None = None) -> None:
                 app.cv_variant_md,
                 _iso(app.applied_at),
                 app.notes,
+            ),
+        )
+
+
+def is_email_seen(message_id: str, db_path: Path | None = None) -> bool:
+    """Comprueba si un Message-ID ya fue procesado por la ingesta email."""
+    if not message_id:
+        return False
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM email_seen WHERE message_id = ?",
+            (message_id,),
+        ).fetchone()
+        return row is not None
+
+
+def mark_email_seen(
+    message_id: str,
+    folder: str,
+    sender: str,
+    offers_count: int,
+    db_path: Path | None = None,
+) -> None:
+    """Registra un email como procesado. Idempotente (INSERT OR IGNORE)."""
+    if not message_id:
+        return
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO email_seen (
+                message_id, folder, sender, ingested_at, offers_count
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                message_id,
+                folder,
+                sender,
+                datetime.now(UTC).isoformat(),
+                offers_count,
             ),
         )
 

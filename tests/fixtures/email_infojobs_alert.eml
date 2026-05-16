@@ -1,0 +1,25 @@
+From: InfoJobs Alertas <noreply@infojobs.net>
+To: alex@example.com
+Subject: Nuevas ofertas que coinciden con tu busqueda
+Date: Fri, 15 May 2026 09:02:00 +0200
+Message-ID: <infojobs-test-001@infojobs.net>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><body>
+<div>
+  <a href="https://www.infojobs.net/madrid/programador-backend-python-junior/of-i6a2c3d4e5f">Programador Backend Python Junior</a>
+  <p>Empresa: Innovatech | Provincia: Madrid (Teletrabajo 100%)</p>
+</div>
+<div>
+  <a href="https://www.infojobs.net/barcelona/desarrollador-fullstack-react-node/of-j7b3d4e5f6">Desarrollador Fullstack React + Node</a>
+  <p>Empresa: Acme Iberica | Provincia: Barcelona</p>
+</div>
+<div>
+  <a href="https://www.infojobs.net/valencia/junior-frontend-vue/of-k8c4d5e6f7">Junior Frontend Vue</a>
+  <p>Empresa: Globex SA | Provincia: Valencia</p>
+</div>
+<div>
+  <a href="https://www.infojobs.net/madrid/programador-backend-python-junior/of-i6a2c3d4e5f">Ver oferta</a>
+</div>
+</body></html>

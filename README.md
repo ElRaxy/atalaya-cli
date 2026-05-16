@@ -114,10 +114,34 @@ Override with `--force` (carries detection risk).
 **LinkedIn Easy Apply / InfoJobs forms** (Playwright) are planned for M6.2 — currently
 only email-based apply is supported. For the others, `bhound list` + manual click.
 
+### Email ingest (M7)
+
+Atalaya also reads job alert emails from your inbox (LinkedIn / InfoJobs / Tecnoempleo / RemoteOK)
+via IMAP and pushes the offers into SQLite. Idempotent: each `Message-ID` is recorded in
+`email_seen`, so re-running won't double-import.
+
+```bash
+bhound ingest-email --folder INBOX --since-days 7
+```
+
+IMAP config in `<config_dir>/config.toml`:
+
+```toml
+[imap]
+host = "imap.gmail.com"
+port = 993
+user = "you@example.com"
+password = "<gmail-app-password>"   # same App Password used for SMTP works here
+use_ssl = true
+```
+
+The 4 supported parsers (`email_linkedin`, `email_infojobs`, `email_tecnoempleo`,
+`email_remoteok`) auto-dispatch by `From` header. Unknown senders are skipped.
+
 ### Status
 
-Alpha. 9 scrapers operational, AI generators working, email apply working, Playwright
-appliers pending. See [roadmap](../../projects/atalaya/ai/plan.md).
+Alpha. 9 scrapers operational, AI generators working, email apply working, email IMAP
+ingest working, Playwright appliers pending. See [roadmap](../../projects/atalaya/ai/plan.md).
 
 ### License
 
@@ -224,10 +248,34 @@ Saltable con `--force` (riesgo de detección).
 
 **LinkedIn Easy Apply / InfoJobs forms** (Playwright) — planeados M6.2. Por ahora solo email apply.
 
+### Ingesta de email (M7)
+
+Atalaya también lee alertas de empleo desde tu bandeja (LinkedIn / InfoJobs / Tecnoempleo / RemoteOK)
+por IMAP y vuelca las ofertas a SQLite. Idempotente: cada `Message-ID` se registra en
+`email_seen` — re-ejecutar no duplica.
+
+```bash
+bhound ingest-email --folder INBOX --since-days 7
+```
+
+Configuración IMAP en `<config_dir>/config.toml`:
+
+```toml
+[imap]
+host = "imap.gmail.com"
+port = 993
+user = "tu@example.com"
+password = "<gmail-app-password>"   # mismo App Password que usas para SMTP sirve aquí
+use_ssl = true
+```
+
+Los 4 parsers soportados (`email_linkedin`, `email_infojobs`, `email_tecnoempleo`,
+`email_remoteok`) se auto-asignan por el header `From`. Remitentes desconocidos se ignoran.
+
 ### Estado
 
 Alpha. 9 scrapers operativos, generadores IA funcionando, apply por email funcionando,
-appliers Playwright pendientes. Ver [roadmap](../../projects/atalaya/ai/plan.md).
+ingesta IMAP funcionando, appliers Playwright pendientes. Ver [roadmap](../../projects/atalaya/ai/plan.md).
 
 ### Licencia
 

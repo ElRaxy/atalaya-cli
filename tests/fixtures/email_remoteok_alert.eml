@@ -1,0 +1,22 @@
+From: RemoteOK Jobs <jobs@remoteok.com>
+To: alex@example.com
+Subject: New remote jobs matching your alerts
+Date: Fri, 15 May 2026 06:00:00 +0000
+Message-ID: <remoteok-test-001@remoteok.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><body>
+<div>
+  <a href="https://remoteok.com/remote-jobs/100001-acme-is-hiring-a-senior-python-engineer">Acme is hiring a Senior Python Engineer</a>
+</div>
+<div>
+  <a href="https://remoteok.com/remote-jobs/100002-globex-junior-react-developer">Globex is hiring a Junior React Developer</a>
+</div>
+<div>
+  <a href="https://remoteok.com/remote-jobs/100003-typescript-fullstack-engineer">Initech is hiring a TypeScript Fullstack Engineer</a>
+</div>
+<div>
+  <a href="https://remoteok.com/remote-jobs/100001">Apply</a>
+</div>
+</body></html>

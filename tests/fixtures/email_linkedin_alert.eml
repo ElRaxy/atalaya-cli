@@ -1,0 +1,27 @@
+From: LinkedIn Job Alerts <jobs-noreply@linkedin.com>
+To: alex@example.com
+Subject: Nuevas ofertas para ti: Full Stack Developer
+Date: Fri, 15 May 2026 08:31:12 +0000
+Message-ID: <linkedin-test-001@linkedin.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><body>
+<table>
+<tr><td>
+  <a href="https://www.linkedin.com/comm/jobs/view/4389789491?trk=eml-alert">Full Stack Developer (Junior)</a>
+  <p>Full Stack Developer at MVST · Madrid, Spain</p>
+</td></tr>
+<tr><td>
+  <a href="https://www.linkedin.com/comm/jobs/view/4410570850?trk=eml-alert">Senior Python Engineer</a>
+  <p>Senior Python Engineer at Acme Tech · Barcelona, Spain (Remote)</p>
+</td></tr>
+<tr><td>
+  <a href="https://www.linkedin.com/comm/jobs/view/4410571815?trk=eml-alert">React Frontend Developer</a>
+  <p>React Frontend Developer at Globex · Spain</p>
+</td></tr>
+<tr><td>
+  <a href="https://www.linkedin.com/comm/jobs/view/4410571815?trk=eml-alert2">View job</a>
+</td></tr>
+</table>
+</body></html>

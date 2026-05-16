@@ -21,6 +21,7 @@ from atalaya.config import (
     get_config_path,
     get_db_path,
     get_profile_path,
+    load_config,
     load_profile,
     save_profile,
 )
@@ -30,6 +31,8 @@ from atalaya.generators import (
     generate_letter,
     load_base_cv,
 )
+from atalaya.ingest.runner import ingest as ingest_emails
+from atalaya.ingest.runner import load_imap_config
 from atalaya.models import Application, ApplicationStatus, Offer, ScoreBreakdown
 from atalaya.profile import default_profile
 from atalaya.scoring import score_offer
@@ -458,6 +461,66 @@ def apply_batch(
         )
 
     console.print(table)
+
+
+@app.command(name="ingest-email")
+def ingest_email(
+    folder: str = typer.Option("INBOX", "--folder", help="Carpeta IMAP a escanear."),
+    since_days: int = typer.Option(
+        7, "--since-days", help="Buscar emails de los últimos N días."
+    ),
+    limit: int = typer.Option(
+        200, "--limit", help="Máximo de emails a fetch desde IMAP."
+    ),
+) -> None:
+    """Ingesta ofertas desde alertas email (LinkedIn / InfoJobs / Tecnoempleo / RemoteOK).
+
+    Requiere config IMAP en `config.toml` (sección `[imap]`).
+    Idempotente vía Message-ID en tabla `email_seen`.
+    """
+    cfg = load_config()
+    imap_cfg = load_imap_config(cfg)
+    if imap_cfg is None:
+        console.print(
+            "[red]ERROR[/red] falta sección [imap] en config.toml "
+            "(host, port, user, password)."
+        )
+        raise typer.Exit(code=2)
+
+    profile = load_profile()
+    console.print(
+        f"[cyan]ingesta[/cyan] {imap_cfg.user}@{imap_cfg.host} "
+        f"folder={folder} since={since_days}d"
+    )
+    try:
+        result = ingest_emails(
+            config=imap_cfg,
+            profile=profile,
+            folder=folder,
+            since_days=since_days,
+            limit=limit,
+        )
+    except Exception as exc:
+        console.print(f"[red]ERROR[/red] ingesta IMAP falló: {exc}")
+        raise typer.Exit(code=1) from exc
+
+    table = Table(title="Resumen ingesta email")
+    table.add_column("métrica")
+    table.add_column("valor", justify="right")
+    table.add_row("emails scanned", str(result.emails_scanned))
+    table.add_row("emails skipped (already seen / no parser)", str(result.emails_skipped))
+    table.add_row("emails parseados", str(result.emails_with_parser))
+    table.add_row("ofertas insertadas (nuevas)", str(result.offers_inserted))
+    table.add_row("ofertas actualizadas", str(result.offers_updated))
+    console.print(table)
+
+    if result.by_parser:
+        by_table = Table(title="Ofertas por parser")
+        by_table.add_column("parser")
+        by_table.add_column("ofertas", justify="right")
+        for parser_name, count in sorted(result.by_parser.items()):
+            by_table.add_row(parser_name, str(count))
+        console.print(by_table)
 
 
 @app.command()

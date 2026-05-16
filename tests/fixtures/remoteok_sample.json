@@ -1,0 +1,58 @@
+[
+  {
+    "0": "Legal",
+    "legal": "By using this API you agree to RemoteOK ToS",
+    "url": "https://remoteok.com/api"
+  },
+  {
+    "id": "1001",
+    "url": "https://remoteok.com/remote-jobs/1001-senior-python-backend-acme",
+    "company": "Acme Corp",
+    "position": "Senior Python Backend Developer",
+    "tags": ["python", "django", "postgres", "aws", "remote"],
+    "location": "Worldwide",
+    "salary_min": 80000,
+    "salary_max": 120000,
+    "date": "2026-05-15T10:00:00+02:00"
+  },
+  {
+    "id": "1002",
+    "url": "https://remoteok.com/remote-jobs/1002-fullstack-react-node-globex",
+    "company": "Globex",
+    "position": "Fullstack Engineer (React + Node.js)",
+    "tags": ["react", "nodejs", "typescript", "fullstack"],
+    "location": "Europe",
+    "salary_min": 0,
+    "salary_max": null,
+    "date": "2026-05-14T08:30:00+02:00"
+  },
+  {
+    "id": "1003",
+    "url": "https://remoteok.com/remote-jobs/1003-marketing-manager-initech",
+    "company": "Initech",
+    "position": "Senior Marketing Manager",
+    "tags": ["marketing", "saas", "growth"],
+    "location": "Worldwide",
+    "date": "2026-05-13T12:00:00+02:00"
+  },
+  {
+    "id": "1004",
+    "url": "https://remoteok.com/remote-jobs/1004-junior-react-dev-soylent",
+    "company": "Soylent",
+    "position": "Junior React Developer",
+    "tags": ["react", "javascript", "frontend", "junior"],
+    "location": "USA Only",
+    "date": "2026-05-12T09:00:00+02:00"
+  },
+  {
+    "id": "1005",
+    "url": "https://remoteok.com/remote-jobs/1005-ml-engineer-hooli",
+    "company": "Hooli",
+    "position": "Machine Learning Engineer",
+    "tags": ["python", "ml", "ai", "llm", "pytorch"],
+    "location": "EMEA",
+    "salary_min": 90000,
+    "salary_max": 130000,
+    "date": "2026-05-15T14:00:00+02:00"
+  }
+]

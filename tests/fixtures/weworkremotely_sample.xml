@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>We Work Remotely - Remote Programming Jobs</title>
+    <link>https://weworkremotely.com/categories/remote-programming-jobs</link>
+    <description>Remote Programming Jobs</description>
+    <language>en</language>
+    <item>
+      <title>Acme Corp: Senior Python Engineer (EU only)</title>
+      <link>https://weworkremotely.com/remote-jobs/acme-corp-senior-python-engineer</link>
+      <guid>https://weworkremotely.com/remote-jobs/acme-corp-senior-python-engineer</guid>
+      <pubDate>Thu, 15 May 2026 10:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Build with &lt;strong&gt;Python&lt;/strong&gt;, &lt;strong&gt;Django&lt;/strong&gt;, &lt;strong&gt;Postgres&lt;/strong&gt; and &lt;strong&gt;AWS&lt;/strong&gt;. Remote Europe only.&lt;/p&gt;</description>
+      <region>Europe</region>
+    </item>
+    <item>
+      <title>Globex: Fullstack React Developer (Worldwide)</title>
+      <link>https://weworkremotely.com/remote-jobs/globex-fullstack-react-dev</link>
+      <guid>https://weworkremotely.com/remote-jobs/globex-fullstack-react-dev</guid>
+      <pubDate>Wed, 14 May 2026 08:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Working with &lt;strong&gt;React&lt;/strong&gt;, &lt;strong&gt;TypeScript&lt;/strong&gt; and &lt;strong&gt;Node.js&lt;/strong&gt; on our SaaS platform. Open worldwide.&lt;/p&gt;</description>
+      <region>Worldwide</region>
+    </item>
+    <item>
+      <title>Initech: Backend Engineer (USA only)</title>
+      <link>https://weworkremotely.com/remote-jobs/initech-backend-engineer</link>
+      <guid>https://weworkremotely.com/remote-jobs/initech-backend-engineer</guid>
+      <pubDate>Tue, 13 May 2026 12:00:00 +0000</pubDate>
+      <description>&lt;p&gt;USA only. Building with &lt;strong&gt;Go&lt;/strong&gt; and &lt;strong&gt;Kubernetes&lt;/strong&gt;.&lt;/p&gt;</description>
+      <region>USA</region>
+    </item>
+    <item>
+      <title>Hooli: Junior Vue Developer</title>
+      <link>https://weworkremotely.com/remote-jobs/hooli-junior-vue-developer</link>
+      <guid>https://weworkremotely.com/remote-jobs/hooli-junior-vue-developer</guid>
+      <pubDate>Mon, 12 May 2026 09:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Junior position. &lt;strong&gt;Vue.js&lt;/strong&gt; and &lt;strong&gt;TypeScript&lt;/strong&gt;. EMEA timezones preferred.&lt;/p&gt;</description>
+      <region>EMEA</region>
+    </item>
+  </channel>
+</rss>

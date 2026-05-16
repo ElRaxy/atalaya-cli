@@ -7,6 +7,7 @@ from atalaya.scrapers.himalayas import HimalayasScraper
 from atalaya.scrapers.indeed_es import IndeedEsScraper
 from atalaya.scrapers.infojobs import InfoJobsScraper
 from atalaya.scrapers.jobfluent import JobFluentScraper
+from atalaya.scrapers.linkedin_public import LinkedInPublicScraper
 from atalaya.scrapers.remoteok import RemoteOkScraper
 from atalaya.scrapers.remoteworkspain import RemoteWorkSpainScraper
 from atalaya.scrapers.tecnoempleo import TecnoempleoScraper
@@ -21,6 +22,7 @@ SCRAPERS: dict[str, type[BaseScraper]] = {
     WeWorkRemotelyScraper.name: WeWorkRemotelyScraper,
     TecnoempleoScraper.name: TecnoempleoScraper,
     InfoJobsScraper.name: InfoJobsScraper,
+    LinkedInPublicScraper.name: LinkedInPublicScraper,
 }
 
 __all__ = [
@@ -30,6 +32,7 @@ __all__ = [
     "IndeedEsScraper",
     "InfoJobsScraper",
     "JobFluentScraper",
+    "LinkedInPublicScraper",
     "RemoteOkScraper",
     "RemoteWorkSpainScraper",
     "TecnoempleoScraper",

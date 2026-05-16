@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from atalaya.generators.claude_client import ClaudeClient
+from atalaya.generators.claude_client import ClaudeBackend, make_client
 from atalaya.models import Offer, Profile
 
 Lang = Literal["es", "en"]
@@ -73,7 +73,7 @@ def generate_cv_variant(
     profile: Profile,
     base_cv_md: str | None = None,
     lang: Lang = "es",
-    client: ClaudeClient | None = None,
+    client: ClaudeBackend | None = None,
 ) -> str:
     """Genera una variante del CV reordenada para maximizar el match con la oferta.
 
@@ -87,7 +87,7 @@ def generate_cv_variant(
     system_prompt = _SYSTEM_BASE_ES if lang == "es" else _SYSTEM_BASE_EN
     user_prompt = _build_user_prompt(offer, base_cv_md, lang)
 
-    active_client = client if client is not None else ClaudeClient()
+    active_client = client if client is not None else make_client()
     return active_client.generate(
         system=system_prompt, user=user_prompt, max_tokens=_MAX_OUTPUT_TOKENS
     )

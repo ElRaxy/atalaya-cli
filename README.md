@@ -2,7 +2,13 @@
 
 > Tu vigía de ofertas dev remoto. AI-powered job aggregator CLI.
 
-**Atalaya** scrapes dev job boards, scores offers against your profile and generates tailored cover letters with Claude. Built for remote devs in Spain/EU hunting their next role.
+[![CI](https://github.com/ElRaxy/atalaya-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/ElRaxy/atalaya-cli/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Typed: mypy strict](https://img.shields.io/badge/typed-mypy_strict-blue.svg)](http://mypy-lang.org/)
+
+**Atalaya** scrapes dev job boards, scores offers against your profile, generates tailored cover letters with Claude, and applies on your behalf (email + Playwright forms). Built for remote devs in Spain/EU hunting their next role.
 
 [English](#english) · [Español](#español)
 
@@ -14,11 +20,13 @@
 
 `atalaya-cli` is a Python CLI that:
 
-1. Aggregates remote dev offers from multiple Spanish/EU job boards.
+1. Aggregates remote dev offers from **9 job boards** (Spanish + EU + global remote).
 2. Deduplicates and stores them locally (SQLite).
 3. Scores each offer against your profile (stack, seniority, location).
 4. Generates tailored cover letters and CV variants with the Claude API.
 5. Exports shortlists to CSV/JSON for manual review.
+6. **Applies automatically** to offers exposing a contact email (SMTP). Rate-limited
+   (1 application / 5 minutes by default) to avoid spam detection.
 
 ### Install
 
@@ -33,6 +41,10 @@ bhound init
 bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <offer-id>
+bhound cv <offer-id>
+bhound apply <offer-id> --preview          # dry-run, check target without sending
+bhound apply <offer-id>                    # really send (rate-limited 5 min)
+bhound apply-batch --min-score 70 --limit 5
 ```
 
 ### Supported job boards
@@ -40,11 +52,18 @@ bhound letter <offer-id>
 | Board              | Source                                         | Notes                                                                  |
 | ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------- |
 | `remoteworkspain`  | remoteworkspain.es                             | JSON-LD JobPosting on detail pages.                                    |
-| `jobfluent`        | jobfluent.com                                  | Server-side HTML. Barcelona/EU startup jobs. 3 pages, rate-limited.    |
-| `himalayas`        | himalayas.app (country=Spain)                  | Remote-first. Next.js SSR HTML. 3 pages.                               |
-| `indeed_es`        | es.indeed.com                                  | Blocked by Cloudflare on direct HTTP (403). Parser ready for Playwright migration (M5). Returns empty list with warning when blocked. |
+| `jobfluent`        | jobfluent.com                                  | Server-side HTML. Barcelona/EU startup jobs.                           |
+| `himalayas`        | himalayas.app (country=Spain)                  | Remote-first. Next.js SSR HTML.                                        |
+| `indeed_es`        | es.indeed.com                                  | Blocked by Cloudflare on direct HTTP. Parser ready for Playwright.     |
+| `remoteok`         | remoteok.com (JSON API)                        | Worldwide / Europe / EMEA. Dev-only filter.                            |
+| `weworkremotely`   | weworkremotely.com (RSS)                       | 4 programming categories. Excludes USA-only.                           |
+| `tecnoempleo`      | tecnoempleo.com                                | Spanish dev jobs, remote filter.                                       |
+| `infojobs`         | infojobs.net                                   | Spain generalist. First 5 cards per listing (JS scroll for the rest).  |
+| `linkedin_public`  | linkedin.com/jobs-guest                        | No auth. Spain + remote (`f_WT=2`). ~25 offers/run.                    |
 
 Run one board with `--board <name>` or all in parallel with `--board all`.
+
+Typical run yields **~300 offers across 9 boards** before scoring + deduplication.
 
 ### AI generators
 
@@ -66,9 +85,39 @@ api_key = "sk-ant-..."
 
 The `cv` command reads the base CV from `projects/job-search/cv/cv-{lang}.md` by default. Override with `ATALAYA_BASE_CV_DIR` or `--cv-base PATH`.
 
+### Automatic apply (M6)
+
+Atalaya can send your cover letter + CV variant by email to offers that expose a contact address:
+
+```bash
+bhound apply 42 --preview        # show what would happen, no email sent
+bhound apply 42                  # actually send (5-min rate-limit enforced)
+bhound apply-batch --min-score 70 --limit 5
+```
+
+SMTP config in `<config_dir>/config.toml`:
+
+```toml
+[smtp]
+host = "smtp.gmail.com"
+port = 587
+user = "you@example.com"
+password = "<gmail-app-password>"   # NEVER your real password — use App Passwords
+from_name = "Alex Mico"
+from_email = "you@example.com"
+starttls = true
+```
+
+**Rate-limit**: persistent across CLI invocations, 5 min between applies + random jitter (±90s).
+Override with `--force` (carries detection risk).
+
+**LinkedIn Easy Apply / InfoJobs forms** (Playwright) are planned for M6.2 — currently
+only email-based apply is supported. For the others, `bhound list` + manual click.
+
 ### Status
 
-Early alpha. Not ready for production. See [roadmap](../../projects/atalaya/ai/plan.md).
+Alpha. 9 scrapers operational, AI generators working, email apply working, Playwright
+appliers pending. See [roadmap](../../projects/atalaya/ai/plan.md).
 
 ### License
 
@@ -82,11 +131,13 @@ MIT
 
 `atalaya-cli` es un CLI Python que:
 
-1. Agrega ofertas dev remoto desde varios job boards españoles/EU.
+1. Agrega ofertas dev remoto desde **9 job boards** (España + EU + global remote).
 2. Deduplica y almacena localmente (SQLite).
 3. Puntúa cada oferta contra tu perfil (stack, seniority, ubicación).
 4. Genera cartas de presentación y variantes de CV personalizadas con la API de Claude.
 5. Exporta shortlists a CSV/JSON para revisión manual.
+6. **Aplica automáticamente** a ofertas con email de contacto (SMTP). Rate-limited
+   (1 envío / 5 min por defecto) para evitar detección como spam.
 
 ### Instalación
 
@@ -101,18 +152,29 @@ bhound init
 bhound search --board all --remote-only
 bhound list --min-score 60
 bhound letter <id-oferta>
+bhound cv <id-oferta>
+bhound apply <id-oferta> --preview         # dry-run, verifica destinatario
+bhound apply <id-oferta>                   # envía de verdad (rate-limit 5 min)
+bhound apply-batch --min-score 70 --limit 5
 ```
 
 ### Job boards soportados
 
 | Board              | Fuente                                          | Notas                                                                  |
 | ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| `remoteworkspain`  | remoteworkspain.es                              | JSON-LD JobPosting en paginas de detalle.                              |
-| `jobfluent`        | jobfluent.com                                   | HTML server-side. Startups Barcelona/EU. 3 paginas con rate limit.     |
-| `himalayas`        | himalayas.app (country=Spain)                   | Remote-first. Next.js SSR. 3 paginas.                                  |
-| `indeed_es`        | es.indeed.com                                   | Bloqueado por Cloudflare en HTTP directo (403). Parser listo para migrar a Playwright (M5). Devuelve lista vacia con warning cuando esta bloqueado. |
+| `remoteworkspain`  | remoteworkspain.es                              | JSON-LD JobPosting en páginas de detalle.                              |
+| `jobfluent`        | jobfluent.com                                   | HTML server-side. Startups Barcelona/EU.                               |
+| `himalayas`        | himalayas.app (country=Spain)                   | Remote-first. Next.js SSR.                                             |
+| `indeed_es`        | es.indeed.com                                   | Bloqueado por Cloudflare en HTTP directo. Parser listo para Playwright.|
+| `remoteok`         | remoteok.com (JSON API)                         | Worldwide / Europe / EMEA. Filtro dev-only.                            |
+| `weworkremotely`   | weworkremotely.com (RSS)                        | 4 categorías programación. Excluye USA-only.                           |
+| `tecnoempleo`      | tecnoempleo.com                                 | Dev jobs ES, filtro remoto.                                            |
+| `infojobs`         | infojobs.net                                    | Generalista ES. Primeras 5 cards (resto JS scroll).                    |
+| `linkedin_public`  | linkedin.com/jobs-guest                         | Sin auth. Spain + remoto (`f_WT=2`). ~25 ofertas/run.                  |
 
 Usa `--board <nombre>` para uno solo o `--board all` para correrlos en paralelo.
+
+Un run típico produce **~300 ofertas across 9 boards** antes de scoring + dedup.
 
 ### Generadores IA
 
@@ -134,9 +196,38 @@ api_key = "sk-ant-..."
 
 El comando `cv` lee el CV base de `projects/job-search/cv/cv-{lang}.md` por defecto. Se puede sobrescribir con `ATALAYA_BASE_CV_DIR` o `--cv-base PATH`.
 
+### Apply automático (M6)
+
+Atalaya puede enviar tu carta + variante CV por email a ofertas que expongan dirección de contacto:
+
+```bash
+bhound apply 42 --preview        # muestra qué pasaría, no envía
+bhound apply 42                  # envía de verdad (rate-limit 5 min activo)
+bhound apply-batch --min-score 70 --limit 5
+```
+
+Configuración SMTP en `<config_dir>/config.toml`:
+
+```toml
+[smtp]
+host = "smtp.gmail.com"
+port = 587
+user = "tu@example.com"
+password = "<gmail-app-password>"   # NUNCA tu password real — usa App Password
+from_name = "Alex Mico"
+from_email = "tu@example.com"
+starttls = true
+```
+
+**Rate-limit**: persistente entre invocaciones CLI, 5 min entre applies + jitter aleatorio (±90s).
+Saltable con `--force` (riesgo de detección).
+
+**LinkedIn Easy Apply / InfoJobs forms** (Playwright) — planeados M6.2. Por ahora solo email apply.
+
 ### Estado
 
-Alpha temprana. No listo para producción. Ver [roadmap](../../projects/atalaya/ai/plan.md).
+Alpha. 9 scrapers operativos, generadores IA funcionando, apply por email funcionando,
+appliers Playwright pendientes. Ver [roadmap](../../projects/atalaya/ai/plan.md).
 
 ### Licencia
 

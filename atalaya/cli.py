@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -15,6 +16,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 
 from atalaya import __version__
+from atalaya.appliers import ApplyStatus, EmailApplier, RateLimiter
 from atalaya.config import (
     get_config_path,
     get_db_path,
@@ -320,6 +322,142 @@ def cv(
     console.print(f"[green]OK[/green] CV variant generado para offer #{offer_id} ({offer.title})")
     console.print(Markdown(content))
     _write_optional_out(out, content)
+
+
+def _resolve_apply_status(result_status: ApplyStatus) -> ApplicationStatus:
+    """Mapea ApplyStatus → ApplicationStatus persistido."""
+    if result_status == ApplyStatus.APPLIED:
+        return ApplicationStatus.APPLIED
+    return ApplicationStatus.DRAFTED
+
+
+@app.command()
+def apply(
+    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    preview: bool = typer.Option(
+        False, "--preview", help="Simula sin enviar — útil para verificar target."
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Ignora rate-limit. Cuidado: riesgo de ban si abusas."
+    ),
+) -> None:
+    """Aplica a una oferta concreta usando el applier disponible (email por defecto)."""
+    offer = _ensure_offer(offer_id)
+    profile = load_profile()
+
+    # Application: usa letter/cv ya generados si existen, sino vacía.
+    application = Application(offer_id=offer_id)
+    # Si existe Application previa, recuperar letter_md/cv_variant_md no es trivial
+    # (no hay get_application). Pero save_application hace upsert, así que basta
+    # con regenerar o aceptar la versión vacía. Para esta versión: no recuperamos —
+    # el usuario debe correr `bhound letter <id>` y `bhound cv <id>` antes.
+
+    limiter = RateLimiter()
+    if not force and not limiter.acquire():
+        wait_s = int(limiter.seconds_until_next())
+        console.print(
+            f"[yellow]rate-limit[/yellow] espera {wait_s}s antes del próximo apply "
+            f"(o usa --force para saltarlo)."
+        )
+        raise typer.Exit(code=3)
+
+    applier = EmailApplier()
+    result = applier.apply(offer, application, profile, preview=preview)
+
+    application = Application(
+        offer_id=offer_id,
+        status=_resolve_apply_status(result.status),
+        letter_md=application.letter_md,
+        cv_variant_md=application.cv_variant_md,
+        applied_at=(
+            datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
+        ),
+        notes=f"applier={applier.name} status={result.status.value} | {result.detail}",
+    )
+    save_application(application)
+
+    color = {
+        ApplyStatus.APPLIED: "green",
+        ApplyStatus.SKIPPED_PREVIEW: "cyan",
+        ApplyStatus.SKIPPED_NO_TARGET: "yellow",
+        ApplyStatus.ERROR: "red",
+    }.get(result.status, "yellow")
+    console.print(
+        f"[{color}]{result.status.value}[/{color}] offer #{offer_id} ({offer.title}) "
+        f"-> {result.detail}"
+    )
+
+
+@app.command(name="apply-batch")
+def apply_batch(
+    min_score: int = typer.Option(70, "--min-score", help="Score mínimo (0-100)."),
+    limit: int = typer.Option(5, "--limit", help="Máximo de candidaturas en este batch."),
+    preview: bool = typer.Option(
+        False, "--preview", help="Simula sin enviar — solo lista lo que aplicaría."
+    ),
+) -> None:
+    """Aplica en batch a top N ofertas que cumplan score mínimo. Respeta rate-limit."""
+    rows = list_offers(min_score=min_score, limit=limit * 5)
+    # Filtra ofertas que aún no aplicamos (status DRAFTED/NEW).
+    candidates: list[tuple[Offer, int | None]] = []
+    for offer, score, status in rows:
+        if status == ApplicationStatus.APPLIED.value:
+            continue
+        candidates.append((offer, score))
+        if len(candidates) >= limit:
+            break
+
+    if not candidates:
+        console.print("[yellow]sin candidatos[/yellow] (score insuficiente o todas aplicadas)")
+        return
+
+    profile = load_profile()
+    applier = EmailApplier()
+    limiter = RateLimiter()
+
+    table = Table(title=f"Batch apply (preview={preview})")
+    table.add_column("id", justify="right")
+    table.add_column("title")
+    table.add_column("score", justify="right")
+    table.add_column("status")
+    table.add_column("detail")
+
+    for offer, score in candidates:
+        if not preview and not limiter.acquire():
+            wait_s = int(limiter.seconds_until_next())
+            table.add_row(
+                str(offer.id),
+                offer.title[:50],
+                str(score or "-"),
+                "rate-limited",
+                f"espera {wait_s}s",
+            )
+            break
+
+        application = Application(offer_id=offer.id or 0)
+        result = applier.apply(offer, application, profile, preview=preview)
+        app_status = _resolve_apply_status(result.status)
+
+        save_application(
+            Application(
+                offer_id=offer.id or 0,
+                status=app_status,
+                applied_at=(
+                    datetime.now(UTC) if result.status == ApplyStatus.APPLIED else None
+                ),
+                notes=f"applier={applier.name} status={result.status.value} | {result.detail}",
+            )
+        )
+
+        table.add_row(
+            str(offer.id),
+            offer.title[:50],
+            str(score or "-"),
+            result.status.value,
+            result.detail[:60],
+        )
+
+    console.print(table)
 
 
 @app.command()

@@ -43,3 +43,6 @@ config.local.toml
 
 # Claude Code session state (local)
 .claude/.last-stop
+
+# venv heredado del iMac por AirDrop (roto: python3.13 inexistente aqui)
+.venv.imac-airdrop-backup/

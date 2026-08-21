@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from atalaya.models import Offer, Profile
 from atalaya.scoring import _freshness_modifier, score_offer
 
+_NOW = datetime(2026, 5, 16, tzinfo=UTC)
+
 
 def _profile() -> Profile:
     return Profile(
@@ -41,7 +43,7 @@ def _offer(**overrides: object) -> Offer:
 
 def test_perfect_match_yields_high_score() -> None:
     offer = _offer()
-    breakdown = score_offer(offer, _profile())
+    breakdown = score_offer(offer, _profile(), now=_NOW)
     assert breakdown.total >= 90
     assert breakdown.stack_match >= 80
     assert breakdown.remote_match == 100
@@ -120,8 +122,8 @@ def test_total_includes_freshness_modifier() -> None:
     fresh = _offer(posted_at=datetime(2026, 5, 14, tzinfo=UTC))
     stale = _offer(posted_at=datetime(2026, 1, 1, tzinfo=UTC))
     # Mismas características salvo fecha → freshness mueve total
-    b_fresh = score_offer(fresh, _profile())
-    b_stale = score_offer(stale, _profile())
+    b_fresh = score_offer(fresh, _profile(), now=now_fresh)
+    b_stale = score_offer(stale, _profile(), now=now_fresh)
     assert b_fresh.total > b_stale.total
     # Cuando se filtra ahora _freshness_modifier internamente:
     assert _freshness_modifier(fresh, now=now_fresh) == 5

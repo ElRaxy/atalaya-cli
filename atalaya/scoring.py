@@ -99,7 +99,7 @@ def _freshness_modifier(offer: Offer, now: datetime | None = None) -> int:
     return 0
 
 
-def score_offer(offer: Offer, profile: Profile) -> ScoreBreakdown:
+def score_offer(offer: Offer, profile: Profile, now: datetime | None = None) -> ScoreBreakdown:
     stack = _stack_score(offer, profile)
     remote = _remote_score(offer, profile)
     seniority = _seniority_score(offer, profile)
@@ -110,7 +110,7 @@ def score_offer(offer: Offer, profile: Profile) -> ScoreBreakdown:
         + seniority * _WEIGHT_SENIORITY
         + language * _WEIGHT_LANGUAGE
     )
-    total = round(base + _freshness_modifier(offer))
+    total = round(base + _freshness_modifier(offer, now=now))
     total = max(0, min(100, total))
     return ScoreBreakdown(
         total=total,

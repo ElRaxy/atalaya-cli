@@ -7,6 +7,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **La ayuda del CLI pasa a inglés.** Los 32 `help=` de las opciones y las
+  descripciones de los 11 comandos estaban en castellano sin acentos, así que
+  `bhound --help` mezclaba idiomas con el resto de la interfaz y con el propio
+  README. La salida se enseña además en el portfolio, que tiene versión inglesa.
+  No cambia ningún nombre de comando, opción ni flag: solo el texto de ayuda.
+
 ### Added
 
 - **Claude Code subprocess backend (default)** — Atalaya tira de la suscripción

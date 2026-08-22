@@ -49,7 +49,7 @@ from atalaya.storage import (
 
 app = typer.Typer(
     name="bhound",
-    help="Atalaya - tu vigia de ofertas dev remoto.",
+    help="Atalaya - your lookout for remote dev jobs.",
     no_args_is_help=True,
 )
 console = Console()
@@ -76,9 +76,9 @@ def version() -> None:
 
 @app.command()
 def init(
-    force: bool = typer.Option(False, "--force", help="Sobrescribir profile.toml existente."),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing profile.toml."),
 ) -> None:
-    """Inicializa directorios, profile.toml y base de datos SQLite."""
+    """Create the directories, profile.toml and the SQLite database."""
     cfg_path = get_config_path()
     profile_path = get_profile_path()
     db_path = get_db_path()
@@ -118,12 +118,12 @@ def search(
     board: str = typer.Option(
         "remoteworkspain",
         "--board",
-        help="Job board a scrapear. Usa 'all' para correrlos todos en paralelo.",
+        help="Job board to scrape. Use 'all' to run every one in parallel.",
     ),
-    limit: int = typer.Option(20, "--limit", help="Maximo ofertas a procesar tras scrape."),
-    remote_only: bool = typer.Option(False, "--remote-only", help="Solo ofertas remotas."),
+    limit: int = typer.Option(20, "--limit", help="Maximum offers to process after the scrape."),
+    remote_only: bool = typer.Option(False, "--remote-only", help="Remote offers only."),
 ) -> None:
-    """Scrapea un job board (o todos con --board all), puntua y persiste."""
+    """Scrape a job board (or all of them with --board all), score and store."""
     if board == "all":
         boards = sorted(SCRAPERS.keys())
     elif board in SCRAPERS:
@@ -202,11 +202,11 @@ def search(
 
 @app.command(name="list")
 def list_cmd(
-    min_score: int = typer.Option(0, "--min-score", help="Score minimo (0-100)."),
-    limit: int = typer.Option(20, "--limit", help="Maximo resultados."),
-    status: str | None = typer.Option(None, "--status", help="Filtra por estado de candidatura."),
+    min_score: int = typer.Option(0, "--min-score", help="Minimum score (0-100)."),
+    limit: int = typer.Option(20, "--limit", help="Maximum results."),
+    status: str | None = typer.Option(None, "--status", help="Filter by application status."),
 ) -> None:
-    """Lista ofertas almacenadas ordenadas por score."""
+    """List stored offers by score."""
     rows = list_offers(min_score=min_score, limit=limit, status_filter=status)
     if not rows:
         console.print("[yellow]sin resultados[/yellow] (prueba 'bhound search')")
@@ -249,12 +249,12 @@ def _write_optional_out(out: str | None, content: str) -> None:
 
 @app.command()
 def letter(
-    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
-    lang: str = typer.Option("es", "--lang", help="Idioma: es | en."),
-    tone: str = typer.Option("direct", "--tone", help="Tono: direct | warm."),
-    out: str | None = typer.Option(None, "--out", help="Path opcional para guardar la carta."),
+    offer_id: int = typer.Argument(..., help="Offer id in the database."),
+    lang: str = typer.Option("es", "--lang", help="Language: es | en."),
+    tone: str = typer.Option("direct", "--tone", help="Tone: direct | warm."),
+    out: str | None = typer.Option(None, "--out", help="Optional path to save the letter."),
 ) -> None:
-    """Genera carta de presentacion tailored para una oferta."""
+    """Draft a cover letter tailored to one offer."""
     if lang not in ("es", "en"):
         console.print(f"[red]ERROR[/red] --lang debe ser 'es' o 'en' (dado: {lang})")
         raise typer.Exit(code=2)
@@ -285,12 +285,12 @@ def letter(
 
 @app.command()
 def cv(
-    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
-    lang: str = typer.Option("es", "--lang", help="Idioma: es | en."),
-    out: str | None = typer.Option(None, "--out", help="Path opcional para guardar el CV."),
-    cv_base: str | None = typer.Option(None, "--cv-base", help="Directorio con cv-{lang}.md."),
+    offer_id: int = typer.Argument(..., help="Offer id in the database."),
+    lang: str = typer.Option("es", "--lang", help="Language: es | en."),
+    out: str | None = typer.Option(None, "--out", help="Optional path to save the CV."),
+    cv_base: str | None = typer.Option(None, "--cv-base", help="Directory holding cv-{lang}.md."),
 ) -> None:
-    """Genera variante de CV tailored para una oferta."""
+    """Draft a CV variant tailored to one offer."""
     if lang not in ("es", "en"):
         console.print(f"[red]ERROR[/red] --lang debe ser 'es' o 'en' (dado: {lang})")
         raise typer.Exit(code=2)
@@ -337,19 +337,19 @@ def _resolve_apply_status(result_status: ApplyStatus) -> ApplicationStatus:
 
 @app.command()
 def apply(
-    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    offer_id: int = typer.Argument(..., help="Offer id in the database."),
     preview: bool = typer.Option(
-        False, "--preview", help="Simula sin enviar — útil para verificar target."
+        False, "--preview", help="Dry run, nothing is sent. Useful to check the target."
     ),
     force: bool = typer.Option(
-        False, "--force", help="Ignora rate-limit. Cuidado: riesgo de ban si abusas."
+        False, "--force", help="Ignore the rate limit. Abusing it risks a ban."
     ),
 ) -> None:
-    """Aplica a una oferta concreta usando el applier disponible (email por defecto).
+    """Apply to one offer with whichever applier fits (email by default).
 
-    Recupera `Application` persistida (letter_md + cv_variant_md) si existen — el flujo
-    esperado es `bhound letter <id>` y `bhound cv <id>` ANTES de `bhound apply <id>`.
-    Si no existen, se aplica con body fallback corto y sin CV adjunto (warning visible).
+    Reuses the stored `Application` (letter_md + cv_variant_md) when it exists: the
+    expected order is `bhound letter <id>` and `bhound cv <id>` BEFORE `bhound apply
+    <id>`. Without them it sends a short fallback body and no CV, and says so.
     """
     offer = _ensure_offer(offer_id)
     profile = load_profile()
@@ -400,23 +400,22 @@ def apply(
 
 @app.command(name="apply-manual")
 def apply_manual(
-    offer_id: int = typer.Argument(..., help="ID de la oferta en la base de datos."),
+    offer_id: int = typer.Argument(..., help="Offer id in the database."),
     mark_applied: bool = typer.Option(
         False,
         "--mark-applied",
-        help="Marca la oferta como APPLIED en BD tras preparar dossier (úsalo "
-        "DESPUÉS de hacer click submit manualmente).",
+        help="Mark the offer as APPLIED after preparing the dossier (use it "
+        "AFTER clicking submit yourself).",
     ),
     no_browser: bool = typer.Option(
-        False, "--no-browser", help="No abrir navegador automáticamente."
+        False, "--no-browser", help="Do not open the browser."
     ),
 ) -> None:
-    """Apply manual asistido — para ofertas LinkedIn/InfoJobs/Tecnoempleo/etc que
-    requieren formulario propio.
+    """Assisted manual apply, for offers with a form of their own.
 
-    Atalaya prepara un dossier (carta + CV en archivos), copia la carta al
-    portapapeles y abre la URL de la oferta en el navegador. Tú pegas, adjuntas,
-    clicas Submit manualmente. Cero riesgo de ban.
+    Atalaya writes the dossier (letter and CV as files), copies the letter to the
+    clipboard and opens the offer in the browser. You paste, attach and submit.
+    Nothing is sent on your behalf, so there is no risk of a ban.
     """
     offer = _ensure_offer(offer_id)
     profile = load_profile()
@@ -470,13 +469,13 @@ def apply_manual(
 
 @app.command(name="apply-batch")
 def apply_batch(
-    min_score: int = typer.Option(70, "--min-score", help="Score mínimo (0-100)."),
-    limit: int = typer.Option(5, "--limit", help="Máximo de candidaturas en este batch."),
+    min_score: int = typer.Option(70, "--min-score", help="Minimum score (0-100)."),
+    limit: int = typer.Option(5, "--limit", help="Maximum applications in this batch."),
     preview: bool = typer.Option(
-        False, "--preview", help="Simula sin enviar — solo lista lo que aplicaría."
+        False, "--preview", help="Dry run: only lists what it would apply to."
     ),
 ) -> None:
-    """Aplica en batch a top N ofertas que cumplan score mínimo. Respeta rate-limit."""
+    """Apply in batch to the top N offers above the minimum score. Honours the rate limit."""
     rows = list_offers(min_score=min_score, limit=limit * 5)
     # Filtra ofertas que aún no aplicamos (status DRAFTED/NEW).
     candidates: list[tuple[Offer, int | None]] = []
@@ -545,18 +544,18 @@ def apply_batch(
 
 @app.command(name="ingest-email")
 def ingest_email(
-    folder: str = typer.Option("INBOX", "--folder", help="Carpeta IMAP a escanear."),
+    folder: str = typer.Option("INBOX", "--folder", help="IMAP folder to scan."),
     since_days: int = typer.Option(
-        7, "--since-days", help="Buscar emails de los últimos N días."
+        7, "--since-days", help="Look at emails from the last N days."
     ),
     limit: int = typer.Option(
-        200, "--limit", help="Máximo de emails a fetch desde IMAP."
+        200, "--limit", help="Maximum emails to fetch over IMAP."
     ),
 ) -> None:
-    """Ingesta ofertas desde alertas email (LinkedIn / InfoJobs / Tecnoempleo / RemoteOK).
+    """Ingest offers from email alerts (LinkedIn / InfoJobs / Tecnoempleo / RemoteOK).
 
-    Requiere config IMAP en `config.toml` (sección `[imap]`).
-    Idempotente vía Message-ID en tabla `email_seen`.
+    Needs the IMAP settings in `config.toml` (`[imap]` section).
+    Idempotent through the Message-ID kept in the `email_seen` table.
     """
     cfg = load_config()
     imap_cfg = load_imap_config(cfg)
@@ -605,12 +604,12 @@ def ingest_email(
 
 @app.command()
 def export(
-    fmt: str = typer.Option("csv", "--fmt", help="Formato: csv | json."),
-    out: str = typer.Option("atalaya-export", "--out", help="Ruta salida (sin extension)."),
-    min_score: int = typer.Option(0, "--min-score", help="Score minimo (0-100)."),
-    limit: int = typer.Option(1000, "--limit", help="Maximo ofertas a exportar."),
+    fmt: str = typer.Option("csv", "--fmt", help="Format: csv | json."),
+    out: str = typer.Option("atalaya-export", "--out", help="Output path (no extension)."),
+    min_score: int = typer.Option(0, "--min-score", help="Minimum score (0-100)."),
+    limit: int = typer.Option(1000, "--limit", help="Maximum offers to export."),
 ) -> None:
-    """Exporta ofertas con score y estado de candidatura a CSV o JSON."""
+    """Export offers with their score and application status to CSV or JSON."""
     if fmt not in ("csv", "json"):
         console.print(f"[red]ERROR[/red] --fmt debe ser 'csv' o 'json' (dado: {fmt})")
         raise typer.Exit(code=2)

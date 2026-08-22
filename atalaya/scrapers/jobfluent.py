@@ -32,6 +32,10 @@ from atalaya.scrapers.base import USER_AGENT, BaseScraper, fetch_html
 _BASE_URL: Final = "https://jobfluent.com"
 _LISTING_URL: Final = f"{_BASE_URL}/jobs"
 
+# Peticiones de detalle en vuelo. El listado no trae resumen, asi que hay que
+# pedir la pagina de cada oferta; con 5 el run se queda en pocos segundos.
+_MAX_CONCURRENCY: Final = 5
+
 _STACK_KEYWORDS: Final = (
     "react",
     "node",
@@ -129,7 +133,47 @@ class JobFluentScraper(BaseScraper):
                     offers.append(offer)
                 if page < self.max_pages:
                     await asyncio.sleep(self.rate_limit_s)
+
+            await self._add_descriptions(offers, client)
         return offers
+
+    async def _add_descriptions(
+        self, offers: list[Offer], client: httpx.AsyncClient
+    ) -> None:
+        """Rellena `description` pidiendo la pagina de cada oferta.
+
+        El listado de JobFluent no trae ni una linea de resumen: sin esto la oferta
+        llega con titulo y poco mas, y un agente no puede juzgar el encaje. El
+        detalle es barato (unos 0,5 s y 70 KB) y `_MAX_CONCURRENCY` mantiene el
+        run en pocos segundos sin castigar al servidor.
+
+        Que una oferta no responda no invalida el resto: se queda sin descripcion
+        y las demas siguen.
+        """
+        semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
+
+        async def fill(offer: Offer) -> None:
+            async with semaphore:
+                try:
+                    detail_html = await fetch_html(offer.url, client)
+                except httpx.HTTPError:
+                    return
+                await asyncio.sleep(self.rate_limit_s)
+            offer.description = self._parse_description(detail_html)
+
+        await asyncio.gather(*(fill(o) for o in offers))
+
+    @staticmethod
+    def _parse_description(detail_html: str) -> str:
+        tree = HTMLParser(detail_html)
+        for selector in ("div[class*=description]", "article", "main"):
+            node = tree.css_first(selector)
+            if node is not None:
+                text = html_lib.unescape(node.text(separator=" ", strip=True))
+                text = re.sub(r"\s+", " ", text).strip()
+                if len(text) > 100:
+                    return text[:4000]
+        return ""
 
     @classmethod
     def _parse_listing(cls, listing_html: str) -> list[Offer]:

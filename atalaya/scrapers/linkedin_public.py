@@ -18,6 +18,14 @@ Limitaciones:
 - LinkedIn puede rate-limit por IP tras muchas requests seguidas. Rate-limit conservador.
 - No requiere auth pero LinkedIn detecta scraping pesado → User-Agent realista + delay 2s
   entre páginas.
+
+
+Sobre la descripcion: NO se pide la pagina de detalle, a diferencia de JobFluent.
+Medido el 2026-08-22: el detalle responde 200 en ~1 s pero pesa 315 KB, asi que
+las ~89 ofertas de un barrido serian unos 28 MB y 89 peticiones seguidas contra
+LinkedIn. Es justo el patron que su anti-bot corta, y perder el listado publico
+-que hoy funciona- por ganar el resumen no compensa. Las ofertas de LinkedIn
+llegan con titulo, empresa y fecha, y el enlace lleva al detalle.
 """
 
 from __future__ import annotations

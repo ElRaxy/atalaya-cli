@@ -42,9 +42,7 @@ def test_parse_payload_filters_usa_only_location() -> None:
 def test_parse_payload_detects_stack_and_seniority() -> None:
     payload = _load_payload()
     offers = RemoteOkScraper._parse_payload(payload)
-    senior_python = next(
-        (o for o in offers if "senior python" in o.title.lower()), None
-    )
+    senior_python = next((o for o in offers if "senior python" in o.title.lower()), None)
     assert senior_python is not None
     assert "python" in senior_python.stack
     assert "django" in senior_python.stack
@@ -66,3 +64,45 @@ def test_parse_payload_handles_invalid_payload_gracefully() -> None:
     assert RemoteOkScraper._parse_payload({}) == []
     assert RemoteOkScraper._parse_payload([{"foo": "bar"}]) == []
     assert RemoteOkScraper._parse_payload(["not-a-dict"]) == []
+
+
+def test_ciudad_del_publicador_no_descarta_la_oferta() -> None:
+    """Regresion 2026-08-22: `location` paso a traer la ciudad de quien publica.
+
+    Con la lista blanca vieja ("worldwide", "europe", "spain"...) pasaban 4 de 59
+    ofertas dev reales; el resto se perdia por un campo que ya no habla de
+    elegibilidad. RemoteOK es remote-only: la ciudad no descarta.
+    """
+    payload: list[dict] = [
+        {"legal": "metadata"},
+        {
+            "position": "Senior Python Developer",
+            "company": "Acme",
+            "url": "https://remoteok.com/remote-jobs/1",
+            "tags": ["python", "backend"],
+            "location": "Dronfield, ",
+        },
+        {
+            "position": "React Engineer",
+            "company": "Globex",
+            "url": "https://remoteok.com/remote-jobs/2",
+            "tags": ["react"],
+            "location": "",
+        },
+    ]
+    offers = RemoteOkScraper._parse_payload(payload)
+    assert len(offers) == 2
+
+
+def test_restriccion_geografica_explicita_si_descarta() -> None:
+    payload: list[dict] = [
+        {"legal": "metadata"},
+        {
+            "position": "Backend Engineer",
+            "company": "Acme",
+            "url": "https://remoteok.com/remote-jobs/3",
+            "tags": ["python"],
+            "location": "US only",
+        },
+    ]
+    assert RemoteOkScraper._parse_payload(payload) == []

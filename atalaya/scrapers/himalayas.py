@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html as html_lib
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from typing import Final
@@ -27,6 +28,8 @@ from selectolax.parser import HTMLParser, Node
 
 from atalaya.models import Offer
 from atalaya.scrapers.base import USER_AGENT, BaseScraper, fetch_html
+
+logger = logging.getLogger("atalaya.scrapers.himalayas")
 
 _BASE_URL: Final = "https://himalayas.app"
 _LISTING_URL: Final = f"{_BASE_URL}/jobs?country=Spain"
@@ -102,7 +105,17 @@ class HimalayasScraper(BaseScraper):
                 url = _LISTING_URL if page == 1 else f"{_LISTING_URL}&page={page}"
                 try:
                     listing_html = await fetch_html(url, client)
-                except httpx.HTTPError:
+                except httpx.HTTPStatusError as exc:
+                    # Un 403 silencioso es indistinguible de "hoy no hay ofertas".
+                    # Desde 2026-08 Himalayas responde 403 tambien con UA de navegador.
+                    logger.warning(
+                        "himalayas bloqueado (status=%d) en page=%d - requiere navegador real",
+                        exc.response.status_code,
+                        page,
+                    )
+                    break
+                except httpx.HTTPError as exc:
+                    logger.warning("himalayas request error en page=%d: %s", page, exc)
                     break
                 parsed = self._parse_listing(listing_html)
                 if not parsed:
@@ -149,9 +162,7 @@ class HimalayasScraper(BaseScraper):
             salary_min, salary_max = cls._extract_salary(article)
             stack = cls._extract_stack(title, tags)
             seniority = cls._detect_seniority(title, tags)
-            raw_hash = hashlib.sha256(
-                (detail_url + title).encode("utf-8")
-            ).hexdigest()[:16]
+            raw_hash = hashlib.sha256((detail_url + title).encode("utf-8")).hexdigest()[:16]
 
             offers.append(
                 Offer(
@@ -225,9 +236,7 @@ class HimalayasScraper(BaseScraper):
         match = re.search(r"(\d+)\s*k\s*-\s*(\d+)\s*k\b", text, flags=re.IGNORECASE)
         if match:
             return int(match.group(1)) * 1000, int(match.group(2)) * 1000
-        match = re.search(
-            r"\$\s*(\d[\d,]{3,})\s*-\s*\$?\s*(\d[\d,]{3,})", text
-        )
+        match = re.search(r"\$\s*(\d[\d,]{3,})\s*-\s*\$?\s*(\d[\d,]{3,})", text)
         if match:
             low = int(match.group(1).replace(",", ""))
             high = int(match.group(2).replace(",", ""))

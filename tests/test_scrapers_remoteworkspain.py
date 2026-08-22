@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+
+import httpx
+import pytest
 
 from atalaya.scrapers.remoteworkspain import RemoteWorkSpainScraper
 
@@ -38,3 +42,41 @@ def test_parse_detail_detects_stack_keywords() -> None:
     assert offer is not None
     # No todas las ofertas mencionan keywords, pero el mecanismo debe producir lista valida
     assert isinstance(offer.stack, list)
+
+
+def test_los_detalles_se_piden_en_paralelo_y_sin_repetir(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regresion 2026-08-22: secuencial con sleep(1) por oferta = 81 s y timeout.
+
+    El listado trae ~50 ofertas y cada detalle es una peticion. En serie el
+    scraper no llegaba a devolver nada. Se comprueba que (a) cada URL se pide una
+    sola vez pese a venir repetida y (b) hay varias peticiones en vuelo a la vez.
+    """
+    listing = (FIXTURES / "remoteworkspain_sample.html").read_text(encoding="utf-8")
+    detail = (FIXTURES / "remoteworkspain_detail_sample.html").read_text(encoding="utf-8")
+    urls = RemoteWorkSpainScraper._parse_listing_urls(listing)
+
+    pedidas: list[str] = []
+    en_vuelo = 0
+    pico = 0
+
+    async def fake_fetch(url: str, client: httpx.AsyncClient) -> str:
+        nonlocal en_vuelo, pico
+        if url == RemoteWorkSpainScraper.source_url:
+            return listing
+        pedidas.append(url)
+        en_vuelo += 1
+        pico = max(pico, en_vuelo)
+        await asyncio.sleep(0)
+        en_vuelo -= 1
+        return detail
+
+    monkeypatch.setattr("atalaya.scrapers.remoteworkspain.fetch_html", fake_fetch)
+    scraper = RemoteWorkSpainScraper(max_pages=1)
+    scraper.rate_limit_s = 0.0
+    offers = asyncio.run(scraper.scrape())
+
+    assert len(pedidas) == len(set(pedidas)) == len(set(urls))
+    assert pico > 1, "los detalles se estan pidiendo de uno en uno"
+    assert len(offers) > 0

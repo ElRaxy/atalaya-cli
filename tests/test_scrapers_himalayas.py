@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from pathlib import Path
+
+import httpx
+import pytest
 
 from atalaya.scrapers.himalayas import HimalayasScraper
 
@@ -33,9 +38,7 @@ def test_parse_listing_extracts_company_and_title() -> None:
 def test_parse_listing_detects_stack_from_title() -> None:
     html = (FIXTURES / "himalayas_sample.html").read_text(encoding="utf-8")
     offers = HimalayasScraper._parse_listing(html)
-    laravel_offer = next(
-        (o for o in offers if "laravel" in o.title.lower()), None
-    )
+    laravel_offer = next((o for o in offers if "laravel" in o.title.lower()), None)
     assert laravel_offer is not None
     assert "laravel" in laravel_offer.stack
     assert "php" in laravel_offer.stack
@@ -46,3 +49,27 @@ def test_parse_listing_dedupes_urls() -> None:
     offers = HimalayasScraper._parse_listing(html)
     urls = [o.url for o in offers]
     assert len(urls) == len(set(urls))
+
+
+def test_403_avisa_en_el_log_en_vez_de_devolver_cero_en_silencio(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regresion 2026-08-22: un 403 mudo es indistinguible de "hoy no hay ofertas".
+
+    Himalayas empezo a responder 403 tambien con UA de navegador. El scraper
+    tragaba la excepcion y devolvia [] sin decir nada, asi que el probe lo daba
+    por sano con 0 resultados.
+    """
+
+    async def fake_fetch(url: str, client: httpx.AsyncClient) -> str:
+        request = httpx.Request("GET", url)
+        response = httpx.Response(403, request=request)
+        raise httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    monkeypatch.setattr("atalaya.scrapers.himalayas.fetch_html", fake_fetch)
+
+    with caplog.at_level(logging.WARNING, logger="atalaya.scrapers.himalayas"):
+        offers = asyncio.run(HimalayasScraper(max_pages=1).scrape())
+
+    assert offers == []
+    assert any("403" in record.getMessage() for record in caplog.records)

@@ -16,7 +16,9 @@ elemento es metadata legal (skip) y el resto son ofertas con campos estables:
         "description": "<p>HTML...</p>"
     }
 
-Filtramos por tag dev-related y location compatible (worldwide, europe, EMEA, EU, Spain).
+Filtramos por tag dev-related. El campo `location` YA NO sirve de lista blanca: desde
+mediados de 2026 trae la ciudad de quien publica y no la elegibilidad, asi que solo se
+usa para descartar restricciones explicitas ("US only"). Ver `_is_compatible_location`.
 """
 
 from __future__ import annotations
@@ -103,6 +105,20 @@ _COMPATIBLE_LOCATIONS: Final = (
     "spain",
     "españa",
     "global",
+)
+
+# Restricciones que SI descartan una oferta de un board remote-only.
+_INCOMPATIBLE_LOCATIONS: Final = (
+    "us only",
+    "usa only",
+    "united states only",
+    "us-based only",
+    "canada only",
+    "australia only",
+    "uk only",
+    "india only",
+    "latam only",
+    "apac only",
 )
 
 _STACK_KEYWORDS: Final = (
@@ -215,9 +231,7 @@ class RemoteOkScraper(BaseScraper):
             stack = cls._extract_stack(title_clean, tags)
             seniority = cls._detect_seniority(title_clean, tags)
             description = cls._clean_description(item.get("description"))
-            raw_hash = hashlib.sha256(
-                (str(url) + title_clean).encode("utf-8")
-            ).hexdigest()[:16]
+            raw_hash = hashlib.sha256((str(url) + title_clean).encode("utf-8")).hexdigest()[:16]
 
             offers.append(
                 Offer(
@@ -261,8 +275,19 @@ class RemoteOkScraper(BaseScraper):
 
     @staticmethod
     def _is_compatible_location(location: str) -> bool:
+        """RemoteOK es remote-only: se descarta solo la restriccion EXPLICITA.
+
+        Hasta 2026-05 el campo `location` traia la elegibilidad ("Worldwide",
+        "Europe", "Spain") y filtrar por lista blanca funcionaba. Desde entonces
+        trae la ciudad de quien publica ("Dronfield, ", "Alice Springs, "): medido
+        el 2026-08-22, 83 de 100 ofertas acaban en coma y ninguna declara
+        restriccion. Con la lista blanca pasaban 4 de 59 ofertas dev; el 93%
+        restante se perdia por un campo que ya no dice lo que decia.
+        """
         low = location.lower()
-        return any(loc in low for loc in _COMPATIBLE_LOCATIONS)
+        if any(loc in low for loc in _COMPATIBLE_LOCATIONS):
+            return True
+        return not any(block in low for block in _INCOMPATIBLE_LOCATIONS)
 
     @staticmethod
     def _parse_date(value: Any) -> datetime | None:

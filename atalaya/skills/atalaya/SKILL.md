@@ -46,8 +46,19 @@ es que tengas delante las ofertas correctas.
 
 ## Antes de nada
 
+Comprueba que el binario responde:
+
 ```bash
-pip install atalaya-cli    # instala el binario `bhound`
+bhound version
+```
+
+Si no responde, ojo: **el paquete todavia no esta publicado en PyPI** y
+`pip install atalaya-cli` falla con un 404. Hoy se instala desde el repositorio:
+
+```bash
+git clone https://github.com/ElRaxy/atalaya-cli && cd atalaya-cli
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
 bhound init                # crea el perfil y la base de datos
 ```
 

@@ -31,8 +31,18 @@
 
 ### Install
 
+Not on PyPI yet, so install from source:
+
 ```bash
-pip install atalaya-cli
+git clone https://github.com/ElRaxy/atalaya-cli && cd atalaya-cli
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+Then install the agent skill into your AI coding CLI (Claude Code, Codex, OpenCode):
+
+```bash
+bhound skill install
 ```
 
 ### Quickstart
@@ -98,7 +108,7 @@ Override per-call with the env var `ATALAYA_CLAUDE_BACKEND=api|cli`.
 To use the **API** backend (your own `ANTHROPIC_API_KEY`, separate billing):
 
 ```bash
-pip install atalaya-cli[api]
+pip install -e ".[api]"
 ```
 
 Then in `config.toml`:
@@ -239,8 +249,18 @@ MIT
 
 ### Instalación
 
+Todavía no está en PyPI, así que se instala desde el código:
+
 ```bash
-pip install atalaya-cli
+git clone https://github.com/ElRaxy/atalaya-cli && cd atalaya-cli
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+Y para instalar la skill de agente en tu CLI (Claude Code, Codex, OpenCode):
+
+```bash
+bhound skill install
 ```
 
 ### Uso rápido
@@ -305,7 +325,7 @@ Override por llamada con `ATALAYA_CLAUDE_BACKEND=api|cli`.
 Para usar el backend **API** (tu propia `ANTHROPIC_API_KEY`, facturación aparte):
 
 ```bash
-pip install atalaya-cli[api]
+pip install -e ".[api]"
 ```
 
 Y en `config.toml`:

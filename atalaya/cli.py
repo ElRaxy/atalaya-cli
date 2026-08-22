@@ -6,6 +6,7 @@ import asyncio
 import csv
 import json
 import logging
+import shutil
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -731,6 +732,79 @@ def health(
     returning = sum(1 for c in counts if c > 0)
     total = sum(counts)
     console.print(f"{returning} of {len(facts)} scrapers returned offers, {total} in total")
+
+
+skill_app = typer.Typer(help="Install the Atalaya agent skill into your AI coding CLI.")
+app.add_typer(skill_app, name="skill")
+
+# Un directorio por agente. La skill se escribe UNA vez y se copia a los que
+# existan: es el patron vendor-neutral, sin tres copias del mismo texto que
+# mantener sincronizadas.
+_AGENT_SKILL_DIRS: dict[str, Path] = {
+    "claude": Path.home() / ".claude" / "skills",
+    "codex": Path.home() / ".codex" / "skills",
+    "opencode": Path.home() / ".config" / "opencode" / "skills",
+}
+
+
+def _bundled_skill_dir() -> Path:
+    """La carpeta de la skill, que viaja DENTRO del paquete.
+
+    Vive en `atalaya/skills/` y no en un `skills/` de la raiz del repo: lo de
+    fuera del paquete no llega a site-packages al instalar con pip, y el
+    comando funcionaria solo desde el checkout.
+    """
+    return Path(__file__).resolve().parent / "skills" / "atalaya"
+
+
+@skill_app.command("install")
+def skill_install(
+    agent: str | None = typer.Option(
+        None,
+        "--agent",
+        help="Install for one agent only: claude | codex | opencode. Default: all detected.",
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing installation."),
+) -> None:
+    """Copy the Atalaya skill into the skills directory of every AI CLI found."""
+    source = _bundled_skill_dir()
+    if not source.is_dir():
+        console.print(f"[red]ERROR[/red] skill bundle not found at {source}")
+        raise typer.Exit(code=1)
+
+    if agent is not None and agent not in _AGENT_SKILL_DIRS:
+        available = ", ".join(sorted(_AGENT_SKILL_DIRS))
+        console.print(f"[red]ERROR[/red] unknown agent '{agent}'. Available: {available}")
+        raise typer.Exit(code=2)
+
+    targets = {agent: _AGENT_SKILL_DIRS[agent]} if agent else _AGENT_SKILL_DIRS
+    # Sin --agent solo se instala donde el agente YA existe: crear ~/.codex en la
+    # maquina de alguien que no usa Codex es ensuciar su home sin permiso.
+    detected = {
+        name: base for name, base in targets.items() if agent is not None or base.parent.is_dir()
+    }
+
+    if not detected:
+        console.print(
+            "[yellow]no AI CLI detected[/yellow] "
+            "(looked for ~/.claude, ~/.codex, ~/.config/opencode)"
+        )
+        console.print("Install one, or force a target with --agent claude")
+        raise typer.Exit(code=1)
+
+    for name, base in detected.items():
+        destination = base / "atalaya"
+        if destination.exists() and not force:
+            console.print(
+                f"[yellow]skip[/yellow] {name}: already at {destination} (use --force)"
+            )
+            continue
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(source, destination)
+        console.print(f"[green]OK[/green] {name} -> {destination}")
+
+    console.print("[dim]Restart your AI CLI so it picks up the new skill.[/dim]")
 
 
 if __name__ == "__main__":

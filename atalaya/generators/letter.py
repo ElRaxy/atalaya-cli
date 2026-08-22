@@ -18,15 +18,15 @@ para un desarrollador junior que busca su primer empleo dev remoto.
 Reglas estrictas (obligatorio):
 - Longitud: 2-3 parrafos, 200-280 palabras aproximadamente.
 - Primer parrafo: quien soy y que encaja con la oferta.
-- Segundo parrafo: un proyecto real que demuestra ese match (Strev o Atalaya segun stack).
+- Segundo parrafo: un proyecto real del perfil que demuestre ese match.
 - Tercer parrafo: por que esa empresa concreta y cierre honesto.
-- Firma final en una linea separada:
-  "Alex Mico Robles - alexmico2006@gmail.com - portfolioalex-mico.vercel.app"
+- Firma final en una linea separada, con los datos del perfil que se dan abajo:
+  "<nombre> - <email> - <portfolio si lo hay>". No inventes ninguno de los tres.
 
 Anti-cliches prohibidos:
 - "siempre he sido apasionado", "desde pequeno", "equipo dinamico", "gran oportunidad".
 - Emojis, superlativos exagerados, saludos genericos tipo "Estimados Sres.".
-- No vender al candidato como senior. Es junior post-DAW (graduacion junio 2026).
+- No vender al candidato por encima de la seniority que declara su perfil.
 
 Reglas de contenido:
 - Ser especifico con la stack: si la oferta pide X, mencionar el X real del candidato.
@@ -34,11 +34,9 @@ Reglas de contenido:
 - Empezar directo, sin asunto ni encabezado formal.
 - Salida en Markdown plano (sin headers ni bullets, solo parrafos).
 
-Proyectos base del candidato (usar segun encaje con la oferta):
-- Strev: SaaS fitness MERN en beta privada. Auth con cookies HttpOnly, tracking de \
-entrenamientos, personalizacion de rutinas via Claude API. Stack: React + Node/Express + MongoDB.
-- Atalaya: CLI Python con Typer + anthropic SDK. Agrega ofertas dev remoto, scoring contra \
-perfil y genera cartas tailored con Claude. Open source MIT.
+Los proyectos del candidato llegan en el perfil. Si no trae ninguno, apoyate solo en su
+stack y no te inventes proyectos: una carta que cita un proyecto inexistente se cae en la
+primera pregunta de la entrevista.
 """
 
 _SYSTEM_BASE_EN = """You are an assistant that writes concise, honest cover letters \
@@ -47,15 +45,15 @@ for a junior developer applying to their first remote dev role.
 Strict rules (mandatory):
 - Length: 2-3 paragraphs, ~200-280 words.
 - First paragraph: who I am and how I fit the role.
-- Second paragraph: a real project that proves the match (Strev or Atalaya per stack).
+- Second paragraph: a real project from the profile that proves the match.
 - Third paragraph: why this specific company and an honest closing.
-- Final signature on its own line:
-  "Alex Mico Robles - alexmico2006@gmail.com - portfolioalex-mico.vercel.app"
+- Final signature on its own line, using the profile data given below:
+  "<name> - <email> - <portfolio if any>". Never invent any of the three.
 
 Banned cliches:
 - "always been passionate", "since I was a kid", "dynamic team", "great opportunity".
 - Emojis, inflated superlatives, generic greetings like "Dear Sirs".
-- Do not pitch the candidate as senior. They are junior post-DAW (graduating June 2026).
+- Do not pitch the candidate above the seniority stated in their profile.
 
 Content rules:
 - Be specific with the stack: if the role asks for X, mention the candidate's real X.
@@ -63,11 +61,9 @@ Content rules:
 - Start directly, no subject line or formal header.
 - Output: plain Markdown paragraphs (no headers, no bullets).
 
-Candidate base projects (pick the one that fits the role):
-- Strev: MERN fitness SaaS in private beta. HttpOnly cookie auth, workout tracking, \
-Claude-powered routine personalization. Stack: React + Node/Express + MongoDB.
-- Atalaya: Python CLI with Typer + anthropic SDK. Aggregates remote dev offers, scores \
-matches against a profile and generates tailored cover letters with Claude. Open source, MIT.
+The candidate's projects come with the profile. If it lists none, lean on their stack
+alone and invent nothing: a letter citing a project that does not exist collapses at the
+first interview question.
 """
 
 
@@ -120,6 +116,10 @@ def _build_user_prompt(offer: Offer, profile: Profile, lang: Lang, tone: Tone) -
     profile_extra = ", ".join(profile.stack_extra) if profile.stack_extra else "-"
     portfolio = str(profile.portfolio_url) if profile.portfolio_url else "(sin portfolio)"
     github = str(profile.github_url) if profile.github_url else "(sin github)"
+    if profile.projects:
+        projects_block = "\n".join(f"- {item}" for item in profile.projects)
+    else:
+        projects_block = "(el perfil no declara proyectos: no inventes ninguno)"
 
     if lang == "es":
         return f"""OFERTA
@@ -134,18 +134,21 @@ def _build_user_prompt(offer: Offer, profile: Profile, lang: Lang, tone: Tone) -
 PERFIL DEL CANDIDATO
 
 - Nombre: {profile.name}
+- Email: {profile.email}
 - Stack core: {profile_core}
 - Stack extra: {profile_extra}
 - Seniority: {profile.seniority} (disponible {profile.availability})
 - Portfolio: {portfolio}
 - GitHub: {github}
+- Proyectos propios:
+{projects_block}
 
 INSTRUCCIONES FINALES
 
 - Idioma: castellano.
 - Tono: {tone} ("direct" = sobrio y sin lloriqueo; "warm" = cercano pero profesional).
 - Longitud: 200-280 palabras, 2-3 parrafos.
-- Mencionar proyecto relevante (Strev si es MERN/Node/fitness/SaaS; Atalaya si es Python/IA/CLI).
+- Mencionar el proyecto del perfil que mejor encaje con la oferta, si hay alguno.
 - No inventes experiencia. Termina con la firma en linea separada.
 """
 
@@ -161,17 +164,20 @@ INSTRUCCIONES FINALES
 CANDIDATE PROFILE
 
 - Name: {profile.name}
+- Email: {profile.email}
 - Core stack: {profile_core}
 - Extra stack: {profile_extra}
 - Seniority: {profile.seniority} (available {profile.availability})
 - Portfolio: {portfolio}
 - GitHub: {github}
+- Own projects:
+{projects_block}
 
 FINAL INSTRUCTIONS
 
 - Language: English.
 - Tone: {tone} ("direct" = sober, no whining; "warm" = friendly but professional).
 - Length: 200-280 words, 2-3 paragraphs.
-- Mention the relevant project (Strev for MERN/Node/fitness/SaaS; Atalaya for Python/AI/CLI).
+- Mention whichever profile project best fits the role, if there is one.
 - Do not invent experience. End with the signature on its own line.
 """

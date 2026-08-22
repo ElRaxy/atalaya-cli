@@ -35,7 +35,7 @@ from atalaya.generators import (
 from atalaya.ingest.runner import ingest as ingest_emails
 from atalaya.ingest.runner import load_imap_config
 from atalaya.models import Application, ApplicationStatus, Offer, ScoreBreakdown
-from atalaya.profile import default_profile
+from atalaya.profile import default_profile, is_placeholder
 from atalaya.scoring import score_offer
 from atalaya.scrapers import SCRAPERS
 from atalaya.storage import (
@@ -93,6 +93,14 @@ def init(
     init_db()
     console.print(f"[green]OK[/green] db SQLite -> {db_path}")
     console.print(f"[dim]config dir: {cfg_path.parent}[/dim]")
+
+    # El perfil nace vacio a proposito. Sin este aviso la primera carta sale
+    # firmada como "Tu Nombre" y se manda a una empresa de verdad.
+    if is_placeholder(load_profile()):
+        console.print(
+            f"\n[yellow]Falta rellenar tu perfil[/yellow]: edita {profile_path}\n"
+            "  Nombre, email, stack y proyectos salen de ahi y acaban en las cartas."
+        )
 
 
 async def _run_scraper(

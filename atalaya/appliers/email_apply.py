@@ -10,10 +10,10 @@ Config esperada en `<config_dir>/config.toml`:
     [smtp]
     host = "smtp.gmail.com"
     port = 587
-    user = "alex@example.com"
+    user = "tu@email.com"
     password = "app-password-aqui"  # NUNCA password real — Gmail App Password
-    from_name = "Alex Mico"
-    from_email = "alex@example.com"
+    from_name = "Tu Nombre"
+    from_email = "tu@email.com"
     starttls = true
 
 Si falta sección [smtp] o password → `ApplyResult(ERROR, "smtp_not_configured")`.

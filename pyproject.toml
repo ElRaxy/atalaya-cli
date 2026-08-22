@@ -9,7 +9,7 @@ description = "Atalaya — tu vigía de ofertas dev remoto. AI-powered job aggre
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Alex Mico", email = "raxytonto@gmail.com" }]
+authors = [{ name = "Alex Mico", email = "alexmico2006@gmail.com" }]
 keywords = ["jobs", "scraper", "cli", "ai", "claude", "remote-work"]
 classifiers = [
     "Development Status :: 3 - Alpha",

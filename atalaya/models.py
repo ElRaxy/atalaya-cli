@@ -54,6 +54,11 @@ class Profile(BaseModel):
     languages: list[str]
     portfolio_url: HttpUrl | None = None
     github_url: HttpUrl | None = None
+    # Proyectos propios que las cartas pueden citar, uno por linea:
+    # "Nombre: que es, con que stack". Vivian cableados en el prompt del
+    # generador, lo que firmaba las cartas de cualquiera con los proyectos de
+    # otra persona.
+    projects: list[str] = Field(default_factory=list)
 
 
 class Application(BaseModel):

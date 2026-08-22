@@ -662,5 +662,76 @@ def export(
     console.print(f"[green]OK[/green] exportadas {len(records)} ofertas -> {target}")
 
 
+@app.command()
+def health(
+    fmt: str = typer.Option("table", "--fmt", help="Output format: table | json."),
+    timeout: float = typer.Option(90.0, "--timeout", help="Seconds allowed per scraper."),
+) -> None:
+    """Run every scraper against the live site and report what each one returns.
+
+    Emits observed facts (offer count, seconds, error type) and never a verdict:
+    a scraper that returns 0 without raising is indistinguishable from a site with
+    no matching offers, so both are reported and the reader decides.
+    """
+    if fmt not in ("table", "json"):
+        console.print(f"[red]ERROR[/red] --fmt must be 'table' or 'json' (got: {fmt})")
+        raise typer.Exit(code=2)
+
+    async def probe(name: str, scraper_cls: type) -> dict[str, object]:
+        started = datetime.now(UTC)
+        fact: dict[str, object] = {
+            "scraper": name,
+            "offers": None,
+            "seconds": None,
+            "error_type": None,
+        }
+        try:
+            offers = await asyncio.wait_for(scraper_cls(max_pages=1).scrape(), timeout=timeout)
+            fact["offers"] = len(offers)
+        except TimeoutError:
+            fact["error_type"] = "TimeoutError"
+        except Exception as exc:
+            fact["error_type"] = type(exc).__name__
+        fact["seconds"] = round((datetime.now(UTC) - started).total_seconds(), 1)
+        return fact
+
+    async def run_all() -> list[dict[str, object]]:
+        return list(
+            await asyncio.gather(*(probe(n, c) for n, c in SCRAPERS.items()))
+        )
+
+    facts = asyncio.run(run_all())
+    facts.sort(key=lambda f: -(f["offers"] if isinstance(f["offers"], int) else 0))
+
+    if fmt == "json":
+        payload = {
+            "measured_at": datetime.now(UTC).isoformat(),
+            "atalaya_version": __version__,
+            "scrapers": facts,
+        }
+        console.print_json(json.dumps(payload, ensure_ascii=False))
+        return
+
+    table = Table(title="Scraper health (live run, 1 page each)")
+    table.add_column("scraper")
+    table.add_column("offers", justify="right")
+    table.add_column("seconds", justify="right")
+    table.add_column("error")
+    for fact in facts:
+        count = fact["offers"]
+        table.add_row(
+            str(fact["scraper"]),
+            "-" if count is None else str(count),
+            str(fact["seconds"]),
+            str(fact["error_type"] or ""),
+        )
+    console.print(table)
+
+    counts = [f["offers"] if isinstance(f["offers"], int) else 0 for f in facts]
+    returning = sum(1 for c in counts if c > 0)
+    total = sum(counts)
+    console.print(f"{returning} of {len(facts)} scrapers returned offers, {total} in total")
+
+
 if __name__ == "__main__":
     app()

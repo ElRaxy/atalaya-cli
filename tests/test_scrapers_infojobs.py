@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from atalaya.scrapers.infojobs import InfoJobsScraper
@@ -67,3 +68,48 @@ def test_parse_listing_detects_stack_from_tags() -> None:
 def test_parse_listing_handles_empty_html() -> None:
     assert InfoJobsScraper._parse_listing("") == []
     assert InfoJobsScraper._parse_listing("<html></html>") == []
+
+
+def test_maquetado_2026_08_rellena_fecha_y_descripcion() -> None:
+    """Regresion 2026-08-22: las 43 ofertas entraban sin fecha y sin descripcion.
+
+    La fecha se buscaba como "hace 2 dias" y en la tarjeta pone "Hace 2d"; la
+    descripcion ni se intentaba (`description=""` a pelo) aunque el `<p>` esta ahi.
+    """
+    html = (FIXTURES / "infojobs_listing_2026-08.html").read_text(encoding="utf-8")
+    offers = InfoJobsScraper._parse_listing(html)
+
+    assert offers, "la fixture del maquetado actual no produjo ninguna oferta"
+    assert all(o.posted_at is not None for o in offers), "fecha sin parsear"
+    assert all(len(o.description or "") > 50 for o in offers), "descripcion vacia"
+
+
+def test_los_dos_formatos_de_fecha_del_mismo_span() -> None:
+    """InfoJobs cambia de formato segun la antiguedad: "Hace 2d" y "13 jul"."""
+    html = (FIXTURES / "infojobs_listing_2026-08.html").read_text(encoding="utf-8")
+    offers = InfoJobsScraper._parse_listing(html)
+    fechas = [o.posted_at for o in offers if o.posted_at]
+
+    ahora = datetime.now(UTC)
+    assert all(f <= ahora for f in fechas), "una fecha en el futuro: el anio se infirio mal"
+
+    # La fixture trae un "13 jul" junto a los "Hace Nd".
+    assert any(f.month == 7 and f.day == 13 for f in fechas), "el formato 'dd mes' no se parseo"
+    assert any((ahora - f).days <= 3 for f in fechas), "el formato 'Hace Nd' no se parseo"
+
+
+def test_no_confunde_un_hace_falta_del_cuerpo_con_una_fecha() -> None:
+    """El regex generico sobre el texto de la tarjeta cazaba "hace falta"."""
+    html = (
+        '<li class="ij-OfferList-offerCardItem">'
+        '<a class="ij-OfferCardContent-description-link" '
+        'href="//www.infojobs.net/madrid/dev/of-iABC" aria-label="Python Developer"></a>'
+        '<p class="ij-OfferCardContent-description-description">'
+        "Para este puesto hace falta experiencia en Django y en Postgres, "
+        "y valoramos mucho el trabajo en equipo dentro de un entorno remoto."
+        "</p></li>"
+    )
+    offers = InfoJobsScraper._parse_listing(html)
+
+    assert len(offers) == 1
+    assert offers[0].posted_at is None, "invento una fecha a partir de 'hace falta'"

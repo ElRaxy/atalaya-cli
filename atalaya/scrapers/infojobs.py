@@ -94,6 +94,11 @@ _SENIORITY_MAP: Final[dict[str, tuple[str, ...]]] = {
     "mid": ("mid-level", "mid level", "mid", "ssr."),
 }
 
+_MESES_ABREVIADOS: Final[dict[str, int]] = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+    "jul": 7, "ago": 8, "sep": 9, "oct": 10, "nov": 11, "dic": 12,
+}
+
 _DEFAULT_KEYWORDS: Final = ("developer", "engineer", "fullstack")
 
 
@@ -171,6 +176,7 @@ class InfoJobsScraper(BaseScraper):
             salary_min, salary_max = cls._extract_salary(card)
             posted_at = cls._extract_posted(card, now)
             title_clean = html_lib.unescape(title)
+            description = cls._extract_description(card)
             stack = cls._extract_stack(title_clean, tags)
             seniority = cls._detect_seniority(title_clean, tags)
             raw_hash = hashlib.sha256(
@@ -186,7 +192,7 @@ class InfoJobsScraper(BaseScraper):
                     remote=True,
                     stack=stack,
                     url=detail_url,
-                    description="",
+                    description=description,
                     posted_at=posted_at,
                     salary_min=salary_min,
                     salary_max=salary_max,
@@ -259,6 +265,45 @@ class InfoJobsScraper(BaseScraper):
 
     @staticmethod
     def _extract_posted(card: Node, now: datetime) -> datetime | None:
+        # InfoJobs abrevia en la tarjeta: "Hace 2d", "Hace 3h", "Hace 1sem". El
+        # patron largo ("hace 2 dias") no aparece en el listado, y por eso las 43
+        # ofertas entraban sin fecha.
+        #
+        # Se lee del nodo propio de la fecha y NO del texto entero de la tarjeta:
+        # un "hace falta" en el cuerpo de la oferta caza con cualquier regex
+        # generico de "hace ..." y colaria una fecha inventada.
+        sincedate = card.css_first("span.ij-FormatterSincedate") if card else None
+        if sincedate is not None:
+            crudo = sincedate.text(strip=True)
+
+            abrev = re.search(r"hace\s+(\d+)\s*(sem|[dhm])\b", crudo, flags=re.IGNORECASE)
+            if abrev:
+                qty = int(abrev.group(1))
+                unit = abrev.group(2).lower()
+                deltas = {
+                    "h": timedelta(hours=qty),
+                    "d": timedelta(days=qty),
+                    "sem": timedelta(weeks=qty),
+                    "m": timedelta(days=qty * 30),
+                }
+                return now - deltas[unit]
+
+            # El mismo span cambia de formato con la antiguedad: lo reciente va
+            # como "Hace 2d" y lo de mas de dos semanas como "13 jul", sin anio.
+            fecha = re.match(r"(\d{1,2})\s+([a-zé]{3})\.?$", crudo.strip(), flags=re.IGNORECASE)
+            if fecha:
+                mes = _MESES_ABREVIADOS.get(fecha.group(2).lower())
+                if mes:
+                    dia = int(fecha.group(1))
+                    try:
+                        candidata = datetime(now.year, mes, dia, tzinfo=UTC)
+                    except ValueError:
+                        return None
+                    # Sin anio: una fecha en el futuro solo puede ser del anio pasado.
+                    if candidata > now:
+                        candidata = candidata.replace(year=now.year - 1)
+                    return candidata
+
         text = card.text() if card else ""
         match = re.search(
             r"hace\s+(\d+)\s+(d[íi]as?|horas?|semanas?|meses)",
@@ -279,6 +324,20 @@ class InfoJobsScraper(BaseScraper):
         if re.search(r"\bhoy\b", text, flags=re.IGNORECASE):
             return now
         return None
+
+    @staticmethod
+    def _extract_description(card: Node) -> str:
+        """El resumen de la oferta, que la tarjeta SI trae y se estaba tirando.
+
+        Medido el 2026-08-22: las 15 tarjetas de tres busquedas distintas traen
+        `p.ij-OfferCardContent-description-description` con texto util. El scraper
+        pasaba `description=""` sin intentarlo.
+        """
+        node = card.css_first("p.ij-OfferCardContent-description-description")
+        if node is None:
+            return ""
+        text = html_lib.unescape(node.text(strip=True))
+        return re.sub(r"\s+", " ", text)[:2000]
 
     @staticmethod
     def _extract_stack(title: str, tags: list[str]) -> list[str]:

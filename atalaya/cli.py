@@ -619,8 +619,13 @@ def export(
         console.print("[yellow]sin ofertas para exportar[/yellow]")
         return
 
+    # El JSON lo consume un agente que tiene que JUZGAR el encaje, y sin fecha,
+    # salario ni descripcion no puede: solo le llegaba titulo y stack. Las tres
+    # columnas ya estaban en SQLite, no se exportaban. El CSV es para leerlo con
+    # ojos, asi que ahi la descripcion va recortada.
     records: list[dict[str, object]] = []
     for offer, score, status in rows:
+        description = offer.description or ""
         records.append(
             {
                 "id": offer.id,
@@ -632,6 +637,10 @@ def export(
                 "stack": ",".join(offer.stack),
                 "url": offer.url,
                 "seniority": offer.seniority,
+                "posted_at": offer.posted_at.isoformat() if offer.posted_at else None,
+                "salary_min": offer.salary_min,
+                "salary_max": offer.salary_max,
+                "description": description if fmt == "json" else description[:300],
                 "score": score if score is not None else "",
                 "application_status": status if status is not None else "",
             }

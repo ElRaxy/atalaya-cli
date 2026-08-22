@@ -33,6 +33,11 @@ from atalaya.scrapers.base import USER_AGENT, BaseScraper, fetch_html
 _BASE_URL: Final = "https://www.tecnoempleo.com"
 _LISTING_URL: Final = f"{_BASE_URL}/ofertas-trabajo/?te=&pr=remoto"
 
+# La empresa enlaza a /<slug>-trabajo, no a /empresas/<slug> como asumia el
+# scraper original. Sirve ademas de senal para localizar la tarjeta.
+_COMPANY_HREF_RE: Final = re.compile(r"/[a-z0-9-]+-trabajo/?$", re.IGNORECASE)
+_DATE_RE: Final = re.compile(r"\b(\d{2})/(\d{2})/(\d{4})\b")
+
 _STACK_KEYWORDS: Final = (
     "react",
     "node",
@@ -146,6 +151,7 @@ class TecnoempleoScraper(BaseScraper):
             salary_min, salary_max = cls._extract_salary(card) if card else (None, None)
 
             title = html_lib.unescape(title_text)
+            description = cls._extract_description(card, title) if card else ""
             stack = cls._extract_stack(title, tags)
             seniority = cls._detect_seniority(title, tags)
             raw_hash = hashlib.sha256(
@@ -161,7 +167,7 @@ class TecnoempleoScraper(BaseScraper):
                     remote=True,
                     stack=stack,
                     url=detail_url,
-                    description="",
+                    description=description,
                     posted_at=posted_at,
                     salary_min=salary_min,
                     salary_max=salary_max,
@@ -191,21 +197,61 @@ class TecnoempleoScraper(BaseScraper):
 
     @staticmethod
     def _find_card_root(node: Node, max_climbs: int = 6) -> Node | None:
-        # Walk up to find card container (selectolax doesn't expose parent directly,
-        # but we can look at anchor itself + reasonable surrounding text via siblings).
-        # Workaround: use node directly as container, accept that some fields may be empty.
+        """Sube del anchor del titulo al div que contiene la tarjeta entera.
+
+        La version anterior devolvia el propio anchor con el comentario
+        "selectolax doesn't expose parent directly". Si lo expone: `node.parent`
+        existe. Buscar empresa, fecha, salario y descripcion dentro del `<a>` del
+        titulo garantizaba encontrarlas vacias, y por eso las 90 ofertas de
+        Tecnoempleo entraban sin un solo campo mas alla del titulo y la URL.
+
+        Se sube hasta el nodo que ya contiene el enlace de la empresa
+        (`/<slug>-trabajo`), que es la senal de "esta es la tarjeta" y no depende
+        de las clases de Bootstrap, que cambian con cada retoque de la web.
+        """
+        current: Node | None = node
+        for _ in range(max_climbs):
+            current = current.parent if current else None
+            if current is None:
+                return node
+            for anchor in current.css("a"):
+                if _COMPANY_HREF_RE.search(anchor.attributes.get("href") or ""):
+                    return current
         return node
 
     @staticmethod
     def _extract_company(card: Node) -> str:
-        # Look for anchor pointing to /empresas/<slug>
         for anchor in card.css("a"):
             href = anchor.attributes.get("href") or ""
-            if "/empresas/" in href:
+            if _COMPANY_HREF_RE.search(href):
                 txt = html_lib.unescape(anchor.text(strip=True))
                 if txt:
                     return txt
         return ""
+
+    @staticmethod
+    def _extract_description(card: Node, title: str) -> str:
+        """El snippet de la tarjeta: el fragmento de texto mas largo que contiene.
+
+        Tecnoempleo no le da contenedor propio al resumen, asi que se trocea el
+        texto de la tarjeta por sus nodos y se elige el trozo mas largo. Los
+        demas son campos cortos que ya viajan en su columna (empresa, "100%
+        remoto", la fecha, el rango salarial, las etiquetas de stack), y el
+        resumen los dobla en longitud con holgura.
+
+        Limpiar por sustraccion (quitar titulo, fecha y salario del texto entero)
+        se probo primero y salio peor: basta una regex glotona para arrasar con el
+        resumen y dejar el ruido.
+        """
+        chunks = [
+            html_lib.unescape(chunk).strip()
+            for chunk in card.text(separator="\x1f", strip=True).split("\x1f")
+        ]
+        candidates = [c for c in chunks if c and c != title and not _DATE_RE.fullmatch(c)]
+        if not candidates:
+            return ""
+        longest = max(candidates, key=len)
+        return re.sub(r"\s+", " ", longest)[:2000] if len(longest) > 40 else ""
 
     @staticmethod
     def _extract_location(card: Node) -> str:
@@ -227,6 +273,18 @@ class TecnoempleoScraper(BaseScraper):
     @staticmethod
     def _extract_posted(card: Node, now: datetime) -> datetime | None:
         text = card.text() if card else ""
+
+        # Tecnoempleo fecha las tarjetas en dd/mm/aaaa ("22/08/2026"). El formato
+        # relativo ("hace 3 dias") se mantiene por si vuelve, pero hoy no aparece
+        # en el listado y era la unica forma que el scraper sabia leer.
+        date_match = _DATE_RE.search(text)
+        if date_match:
+            day, month, year = (int(g) for g in date_match.groups())
+            try:
+                return datetime(year, month, day, tzinfo=UTC)
+            except ValueError:
+                pass
+
         pattern = r"hace\s+(\d+)\s+(d[íi]as?|horas?|semanas?|meses)"
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
@@ -248,7 +306,12 @@ class TecnoempleoScraper(BaseScraper):
     def _extract_salary(card: Node) -> tuple[int | None, int | None]:
         text = card.text() if card else ""
         text = html_lib.unescape(text)
-        match = re.search(r"(\d{1,3}(?:[.\s]\d{3})+)\s*-\s*(\d{1,3}(?:[.\s]\d{3})+)\s*€", text)
+        # El simbolo va pegado a CADA cifra ("30.000€ - 33.000€ b/a"), no solo al
+        # final del rango. Esperandolo unicamente al final no cazaba ni una.
+        match = re.search(
+            r"(\d{1,3}(?:[.\s]\d{3})+)\s*€?\s*-\s*(\d{1,3}(?:[.\s]\d{3})+)\s*€",
+            text,
+        )
         if match:
             low = int(re.sub(r"[.\s]", "", match.group(1)))
             high = int(re.sub(r"[.\s]", "", match.group(2)))

@@ -1,4 +1,12 @@
-"""Scraper de RemoteWorkSpain.es (WP Job Board Pro)."""
+"""Scraper de RemoteWorkSpain.es (WP Job Board Pro).
+
+`company` sale siempre como "RemoteWorkSpain" y NO es un fallo del parser: el
+board republica en su propio nombre y no expone al empleador. Comprobado el
+2026-08-22 en el JSON-LD (`hiringOrganization.name` es "Remote Work Spain" en
+todas las ofertas, con `Logo_placeholder.jpg` de logo) y en el HTML de detalle,
+buscando `employer*`, `company*` y el rotulo "Empresa". No volver a intentarlo
+sin una senal nueva.
+"""
 
 from __future__ import annotations
 
